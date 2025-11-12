@@ -1,0 +1,29 @@
+Product Requirements Document (PRD) — __TERTIARY_PRD_NAME__
+
+1) Overview
+- Problem & value; scope; audience.
+
+2) Core Features
+- Sequencing/masks or equivalent generative flow
+- Sliders & ranges
+- Statistics (Phase 1/2)
+- Reporting
+
+3) Architecture & APIs
+- Package-first; notebooks as demos
+
+4) Acceptance Criteria
+- Metrics targets
+
+5) Sources
+- research-documents/<path>.pdf
+
+6) Acceptance by Metrics
+- <targets>
+
+7) Out of Scope & Assumptions
+- <bullets>
+
+8) Glossary
+- <terms>
+

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Node/other
+node_modules/
+
+# Env
+.env
+
+# Editors
+.idea
+.vscode
+
+# OS
+.DS_Store
+
+# Reports/outputs
+.taskmaster/reports/
+outputs/
+

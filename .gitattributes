@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+*.ipynb filter=nbstripout diff=ipynb
+*.pdf binary
+*.png binary
+*.jpg binary
+research-documents/** binary

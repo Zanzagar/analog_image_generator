@@ -1,0 +1,70 @@
+Product Requirements Document (PRD) — Estuarine Systems (Tide-, Wave-, Mixed-Dominated)
+(Professor feedback recorded 2025-11-12; parameter dimensions reference Jiwei et al., 2025 Sci. Reports tidal-estuary model.)
+
+1) Overview
+- Implement estuarine generators with clear dominance controls (tide vs wave), channel-bar morphology, shoreline curvature, and mud fraction. Provide interactive sliders, quick metrics, full statistics, and reporting.
+
+2) Core Features
+2.1 Generators by Sequencing & Masks
+- Tide-dominated: ebb/flood channels, tidal bars (elongate), mudflats; channel sinuosity moderate.
+- Wave-dominated: shoreface-parallel bars, smoother shoreline, distributary mouth-bars.
+- Mixed-energy: blended bar systems with tunable dominance.
+- Masks: channel, bar, mudflat/sandflat, shoreline; palettes + legend.
+
+-2.2 Interactive (v20a-equivalent)
+- Sliders: tidal prism, wave energy index, channel sinuosity S, bar wavelength λ_b, channel wavelength λ_c, mud fraction m, delta-front angle φ, dominance slider δ ∈ [0,1], interlayer type, seed.
+  - Suggested ranges: prism ∈ [0.1, 1.0], wave index ∈ [0.0, 1.0], S ∈ [1.0, 1.8], λ_b ∈ [20, 150] px (~0.5–3.0 km @ 5 m/px), λ_c ∈ [30, 200] px (~0.75–4.0 km), m ∈ [0.1, 0.8], φ ∈ [−30°, 30°], δ ∈ [0, 1], interlayer type ∈ {I (>0.5 m), II (<0.5 m), III (0 m)}.
+  - Parameter defaults + sources (Jiwei et al., 2025 Sci. Rep. tidal-estuary case unless noted):
+
+    | Slider | Range / Units | Default | Source |
+    | --- | --- | --- | --- |
+    | Tidal prism | [0.1, 1.0] (dimensionless) | 0.5 | `depositional_system_estuarian_tide-dominated.pdf` §3 |
+    | Wave energy index | [0.0, 1.0] | 0.4 | `depositional_system_estuarian_wave-dominated.pdf` fig. 2 |
+    | Channel sinuosity S | [1.0, 1.8] | 1.4 | Jiwei et al. 2025 (LU_T / LU_F stacking) |
+    | Bar wavelength λ_b | [20, 150] px ≈ [0.5, 3.0] km | 60 px (≈1.5 km) | Jiwei et al. 2025 fig. 10 + mixed-energy fig. 4 |
+    | Channel wavelength λ_c | [30, 200] px ≈ [0.75, 4.0] km | 90 px (≈2.25 km) | Jiwei et al. 2025 (interlayer lengths 2–8 km, length:width = 3–15×) |
+    | Mud fraction m | [0.1, 0.8] | 0.35 | tide-dominated §3.5 |
+    | Delta-front angle φ | [−30°, 30°] deg | 5° | wave-dominated shoreline curvature (§3) |
+    | Dominance slider δ | [0, 1] (0=tide,1=wave) | 0.5 | mixed-energy §5 |
+    | Interlayer type | {I (>0.5 m), II (<0.5 m), III (0 m)} | Type II | Jiwei et al. 2025 interlayer stats (61% ≈0.3 m) |
+    | Random seed | [0, 2^31−1] | 42 | reproducibility requirement |
+- Sequential preview: base → channels → bars → flats → shoreline → final gray → facies RGB.
+
+2.3 Statistics (v20-equivalent)
+- Phase 1: β_iso, β_dir_{0,45,90,135}, anisotropy ratio, two-segment (β₁, β₂, h₀).
+- Phase 2: entropy H, D/SFI, PSD anisotropy (aspect, θ), topology per facies.
+- Estuarine-specific: ebb/flood channel orientation split, mouth-bar aspect ratio distribution, shoreline curvature stats.
+
+2.4 Reporting
+- CSV fields include estuarine metrics; per-style PDFs; master summary with thumbnails.
+
+3) Architecture & APIs
+- Reuse src/ modules; add estuarine helpers in geologic_generators.py. Maintain docs/GEOLOGIC_RULES.md mapping Principle→Function.
+
+4) Acceptance Criteria
+- Visually distinct dominance regimes; sliders update preview; quick metrics update; batch export; CSV+PDFs; rules traceable.
+
+5) Sources
+- research-documents/geologic-depositional-environments/depositional_system_estuarian_tide-dominated.pdf
+- research-documents/geologic-depositional-environments/depositional_system_estuarian_wave-dominated.pdf
+- research-documents/geologic-depositional-environments/depositional_system_estuarian_mixed-energy.pdf
+- research-documents/geologic-depositional-environments/depositional_environments_overview.pdf
+- research-documents/geologic-depositional-environments/s41598-025-03591-7.pdf (Jiwei et al., 2025 tidal-dominated estuary reservoir modeling)
+
+6) Acceptance by Metrics
+- Orientation split: ebb vs flood channels must show bimodal peaks separated by ≥25° (tide-dominated fig. 3). Flag runs where |θ_ebb − θ_flood| < 15°.
+- Mouth-bar aspect ratios 2.0–4.0 for wave-dominated, 1.2–2.2 for tide-dominated, per respective PDFs (§3 tables). Outside ranges require rerun.
+- Shoreline curvature: mixed-energy case maintains curvature std dev < 0.25 rad/pixel (wave-dominated fig. 4); report violations.
+- PSD aspect ratio vs dominance slider: δ→0 should yield PSD aspect 1.3–1.8; δ→1 should exceed 2.0 (`depositional_environments_generation_rules.pdf` estuarine appendix).
+- Length-to-width ratios for tidal sand bars and channels must fall within 3–15×, mirroring Jiwei et al. 2025 seismic facies observations; variance outside this band requires updated parameters or documentation.
+- LU_T sandstone thickness should honor 15.2 ± 5 ft with porosity ≈18–20%; LU_F tidal channels should honor 87 ± 10 ft with porosity ≈20% (Jiwei et al. 2025). Reports must log simulated thickness histograms.
+- Interlayer statistics: ≥60% of interlayers ~0.3 m thick, 20% within 0.3–0.6 m, 20% >0.6 m, with lateral lengths 2–8 km (30%) or >8 km (70%). Generators must emit QC metrics comparing simulation output to these distributions.
+
+7) Out of Scope & Assumptions
+- No sediment transport physics; morphology procedural rule-set
+- 2D only; pixels as units
+
+8) Glossary
+- δ: dominance slider [0,1] between tide and wave
+- λ_b: bar wavelength in pixels
+- Shoreline curvature: curvature distribution of extracted shoreline polyline

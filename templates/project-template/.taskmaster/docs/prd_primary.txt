@@ -1,0 +1,29 @@
+Product Requirements Document (PRD) — __PRIMARY_PRD_NAME__
+
+1) Overview
+- Build from geologic/engineering principles; interactive exploration; statistics; reporting.
+
+2) Core Features
+- Sequencing & masks (if applicable)
+- Interactive sliders with ranges
+- Statistics (Phase 1/2)
+- Reporting (CSV, PDFs, mosaics)
+
+3) Architecture & APIs
+- Package-first; notebooks as demos
+
+4) Acceptance Criteria
+- Visual/functional + metrics targets
+
+5) Sources
+- research-documents/<path>.pdf
+
+6) Acceptance by Metrics
+- Specify β/D/H ranges, anisotropy, PSD aspect/θ
+
+7) Out of Scope & Assumptions
+- 2D arrays; pixels as units
+
+8) Glossary
+- <terms>
+

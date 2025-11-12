@@ -1,0 +1,75 @@
+Product Requirements Document (PRD) — Aeolian Dune Fields (Barchan, Linear, Transverse)
+(Professor review logged 2025-11-12; structural/petrologic guidance integrated per aeolian sandstone checklist.)
+
+1) Overview
+- Build procedural generators for three aeolian morphologies with parameterized wind controls and geology-aware sequencing. Provide interactive sliders, quick metrics, full statistics, and reporting compatible with fluvial framework.
+
+2) Core Features
+2.1 Generators by Sequencing & Masks
+- Barchan: seed horns with slipface lee, migrate with wind θ; interdune low.
+- Linear/Seif: ridge continuity along mean wind; secondary wind forms kinks; interdune corridors.
+- Transverse: crest-parallel ridges orthogonal to wind; spacing λ ~ f(H).
+- Masks: crest, slipface, stoss, interdune; color palettes + legend.
+
+2.2 Interactive (v20a-equivalent)
+- Sliders: wind azimuth θ, speed index q, dune height H, crest spacing λ, interdune fraction f_i, defect rate ρ, seed.
+  - Suggested ranges: θ ∈ [0°, 180°], H ∈ [5, 40] px, λ ∈ [20, 120] px, f_i ∈ [0.1, 0.6], ρ ∈ [0.0, 0.3]
+  - Parameter defaults + sources:
+
+    | Slider | Range / Units | Default | Source |
+    | --- | --- | --- | --- |
+    | Wind azimuth θ | [0°, 180°] | 60° | `depositional_system_aeolian_barchan-dune.pdf` fig. 3 wind roses |
+    | Speed index q | [0.3, 1.3] (normalized shear) | 0.9 | `depositional_system_aeolian_linear-dune.pdf` §3 transport regimes |
+    | Dune height H | [5, 40] px | 18 px | `depositional_system_aeolian_transverse-dune.pdf` fig. 4 crest heights |
+    | Crest spacing λ | [20, 120] px | 60 px | `depositional_system_aeolian_transverse-dune.pdf` fig. 5 spacing |
+    | Interdune fraction f_i | [0.1, 0.6] | 0.3 | `depositional_system_aeolian_barchan-dune.pdf` §2.3 interdunes |
+    | Defect rate ρ | [0.0, 0.3] | 0.05 | `depositional_system_aeolian_linear-dune.pdf` §3.4 |
+    | Random seed | [0, 2^31−1] | 42 | reproducibility requirement |
+- Sequential preview: base field → ridges → slipfaces → interdunes → final gray → facies RGB.
+- Param batch exporter (N realizations).
+
+2.3 Statistics (v20-equivalent)
+- Phase 1: β_iso, β_dir_{0,45,90,135}, anisotropy ratio, two-segment fit (β₁, β₂, h₀).
+- Phase 2: entropy H, D/SFI, PSD anisotropy (aspect, θ), topology per facies.
+- Aeolian-specific: crest orientation rose vs θ, ridge continuity metric, interdune connectivity, PSD θ residual to wind.
+
+2.4 Reporting
+- CSV fields include aeolian metrics; per-style PDFs; master summary with thumbnails.
+
+2.5 Diagnostic Sedimentary Features & Property Trends
+- Cross-bedding: record dune-scale high-angle sets and reactivation surfaces via overlays; each realization logs dominant dip azimuth & set height distributions, flagging wind-direction changes.
+- Grain rounding & surface textures: capture as property trends (e.g., roundedness index, surface roughness factor) exported in metrics; note limitations for continuum grids and approximate via scalar fields derived from transport distance.
+- Inverse grading: enable per-dune controls that invert gradation (fine-to-coarse upward) to mimic ripple crest impacts; store gradation metadata per mask.
+- Erosional/reactivation surfaces: implement event layers that truncate/offset dunes when wind direction shifts; log counts per realization.
+- Impact craters/dissolution pits: approximate via texture modifiers on crest masks; track frequency.
+- Cementation: apply mineral palette tags (hematite-rich, red-orange hue) and include cement type in reports; ensure GEOLOGIC_RULES anchors trace to `analog_image_generator.geologic_generators.aeolian_cementation`.
+
+3) Architecture & APIs
+- Reuse src/ modules; add aeolian helpers in geologic_generators.py. Maintain docs/GEOLOGIC_RULES.md mapping Principle→Function.
+
+4) Acceptance Criteria
+- Visual realism per style; sliders update preview; quick metrics update; batch export works; CSV+PDFs generated; rules traceable.
+
+5) Sources
+- research-documents/geologic-depositional-environments/depositional_system_aeolian_barchan-dune.pdf
+- research-documents/geologic-depositional-environments/depositional_system_aeolian_linear-dune.pdf
+- research-documents/geologic-depositional-environments/depositional_system_aeolian_transverse-dune.pdf
+- research-documents/geologic-depositional-environments/depositional_environments_overview.pdf
+
+6) Acceptance by Metrics
+- Crest orientation error |θ_PSD − θ_wind| ≤ 15° median per `depositional_system_aeolian_transverse-dune.pdf` fig. 6.
+- Ridge continuity index ≥ 0.7 for linear/seif, 0.4–0.6 for transverse, 0.3–0.5 for barchan (linear-dune §4).
+- Interdune connectivity (1 − χ/A) within 0.2–0.6 (`barchan-dune` §2.3); flag anything outside.
+- PSD θ residuals align with wind within ±10°; PSD aspect ratios 1.2–1.8 for linear/transverse, <1.2 for interdune corridors (`generation_rules.pdf` aeolian appendix).
+- Cross-bedding QC: at least one high-angle (>20°) cross-bed set captured per realization with logged dip azimuth histogram; reactivation surfaces count tracked; failures flagged.
+- Grain rounding / texture QC: export roundedness index (target 0.6–0.9) and surface texture variance; deviations noted for property modeling.
+- Inverse grading toggle validated per dune type; metrics capture grain-size gradient sign.
+
+7) Out of Scope & Assumptions
+- No dune-dune interaction dynamics; procedural field
+- 2D only; pixels as units
+
+8) Glossary
+- θ_wind: wind azimuth
+- Ridge continuity: proportion of crest pixels in the main component
+- Interdune connectivity: 1 − χ/A over interdune mask

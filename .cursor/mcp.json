@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"task-master-ai": {
+			"command": "wsl.exe",
+			"args": [
+				"bash",
+				"-c",
+				"export PATH='/home/cjh5690/.nvm/versions/node/v22.16.0/bin:/usr/bin:/bin:$PATH' && export TASK_MASTER_TOOLS='all' && export ANTHROPIC_API_KEY=\"$ANTHROPIC_API_KEY\" && export PERPLEXITY_API_KEY=\"$PERPLEXITY_API_KEY\" && task-master-ai"
+			]
+		}
+	}
+}

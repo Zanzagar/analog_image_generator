@@ -1,0 +1,121 @@
+{
+  "fluvial-v1": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Establish project skeleton and development environment",
+        "description": "Create the Python project structure, virtual environment, dependency manifest, and baseline documentation needed to start implementing the fluvial analog system.",
+        "details": "- Scaffold folders `src/`, `src/analog_image_generator/`, `notebooks/`, `docs/`, and `outputs/`; add `__init__.py` stubs and placeholder notebooks `v20a_interactive_rebuild.ipynb`, `v20_complete_analysis.ipynb`.\n- Author a `pyproject.toml` (PEP 621) targeting Python ≥3.10 with core dependencies (numpy, scipy, matplotlib, pandas, ipywidgets, scikit-image, shapely, reportlab, PyPDF2, tqdm) and optional extras for notebooks/tests; wire Ruff + mypy configs for linting.\n- Configure `.gitignore` to exclude `outputs/`, `*.ipynb_checkpoints`, and virtualenv artifacts; ensure README.md covers overview, quick-start, and Task Master integration steps referencing `.env.example`.\n- Normalize `.taskmaster/config.json` metadata (`projectName`, `defaultNumTasks`) and refactor `.cursor/mcp.json` to read API keys from `.env` (e.g., `\"source\": \"env\"` entries) to avoid committing secrets.\n- Provision `.venv` via `python -m venv .venv`; add `Makefile` or `uv` script for `install`, `lint`, `test`, `notebook` targets.\nPseudo-code:\n```python\nfrom pathlib import Path\nfrom textwrap import dedent\nroot = Path(__file__).resolve().parent\nfor rel in (\"src/analog_image_generator\", \"notebooks\", \"docs\", \"outputs\"):\n    (root / rel).mkdir(parents=True, exist_ok=True)\n(root / \"src/analog_image_generator/__init__.py\").touch()\n(root / \"pyproject.toml\").write_text(dedent(TOML_TEMPLATE))\n```\n- Document environment setup in README and confirm Task Master CLI instructions reference Codex CLI usage on WSL.",
+        "testStrategy": "- Run `python -m venv .venv && source .venv/bin/activate && python -m pip install -e .` to ensure dependency metadata resolves.\n- Execute `python -m compileall src` to verify package scaffolding.\n- Use `task-master validate-dependencies` (once CLI configured) to confirm updated config files load without warnings.\n- Run `pre-commit run --all-files` or `ruff check .` if hooks configured to validate linting setup.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement core utility toolkit for field synthesis and I/O",
+        "description": "Build `utils.py` with reusable helpers for random field generation, rasterization, image I/O, and normalization to underpin all generator modules.",
+        "details": "- Create `src/analog_image_generator/utils.py` housing RNG wrapper (`numpy.random.default_rng()`), Gaussian noise field synthesis with multi-scale smoothing (`scipy.ndimage.gaussian_filter`), and deterministic seeding support.\n- Implement `polyline_to_mask(points, width, shape)` using `scipy.interpolate.CubicSpline` interpolation + `skimage.draw.line_aa`/`morphology.binary_dilation` to rasterize centerlines and belts.\n- Add I/O helpers (`load_gray(path)`, `save_masks(dict, base_path)`) leveraging `imageio.v3` for PNG/TIFF, plus JSON/YAML config loaders.\n- Provide normalization utilities (`normalize_to_unit`, `stretch_percentile`, mask cleaning with `binary_fill_holes`).\nPseudo-code:\n```python\ndef synthesize_field(shape, sigma, seed):\n    rng = np.random.default_rng(seed)\n    base = rng.standard_normal(shape)\n    blurred = gaussian_filter(base, sigma=sigma, mode=\"reflect\")\n    return normalize_to_unit(blurred)\n```\n- Ensure module exposes dataclasses for environment parameters shared by generators.",
+        "testStrategy": "- Write pytest cases in `tests/test_utils.py` verifying deterministic outputs for identical seeds and expected value ranges (0-1).\n- Validate `polyline_to_mask` by rasterizing a known square path and asserting area/pixel counts with `numpy.count_nonzero`.\n- Use `pytest.mark.parametrize` to cover various image formats, ensuring load/save round-trips preserve dtype and shape.\n- Run `ruff check src/analog_image_generator/utils.py` to confirm style compliance.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Deliver meandering river generator suite",
+        "description": "Implement meandering-specific generation functions covering centerline creation, channel width modulation, levees, scroll bars, oxbows, and final composition pipeline.",
+        "details": "- Build `meander_centerline(params)` to sample control points across belt, apply cubic spline interpolation, enforce sinuosity bounds, and return dense xy arrays plus mask via utilities.\n- Implement `meander_variable_channel(centerline, params)` to compute along-channel distances, map widths using easing functions, and dilate centerline with variable radius (`scipy.ndimage.distance_transform_edt`).\n- Add sequential facies functions: `add_levees(channel_mask, params)` (binary dilation + Gaussian blur), `add_scroll_bars(belt_mask, params)` (distance bands with cosine modulation), `add_oxbow(centerline, params)` (identify tight bends via curvature threshold and stamp ellipses).\n- Compose in `compose_meandering(base_field, params)` layering floodplain → belt → scrolls → channel → levees → oxbows, returning grayscale raster plus masks dict.\nPseudo-code:\n```python\ndef compose_meandering(params):\n    base = synthesize_field(params.shape, params.base_sigma, params.seed)\n    centerline, belt_mask = meander_centerline(params)\n    channel = meander_variable_channel(centerline, params)\n    levees = add_levees(channel, params)\n    scrolls = add_scroll_bars(belt_mask, params)\n    oxbows = add_oxbow(centerline, params)\n    masks = {\"channel\": channel, \"pointbar\": scrolls_pointbar, ...}\n    gray = blend_layers(base, masks, params.gray_weights)\n    return gray, masks, centerline\n```\n- Parameterize via dataclass `MeanderParams` capturing amplitude range, control points, width bounds, levee iterations, scroll wavelength, oxbow probability.",
+        "testStrategy": "- Unit test curvature-derived sinuosity staying within [1.2, 3.0] for default params (compute path length / straight-line distance).\n- Verify mask layering by asserting mutually exclusive facies (no overlapping ones) and expected proportions via `numpy.sum(mask) / total >= thresholds`.\n- Regression-test deterministic seed reproducibility and that `compose_meandering` returns grayscale in [0,1].\n- Visual smoke test: generate sample image saved to `outputs/debug_meander.png` and review quickly.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Build braided river generator with bars and chutes",
+        "description": "Implement braided environment routines for multi-thread belts, bar seeding, chute formation, and final composition output.",
+        "details": "- Create `braided_threads(params)` using evenly spaced base lines perturbed with low-amplitude noise; rasterize each thread with width variability to produce composite belt.\n- Implement `seed_bars(channel_mask, params)` placing elongated Gaussian ellipses between threads at intervals ≈4–5× mean width with orientation parallel to flow.\n- Add `add_chutes(bar_mask, params)` to carve narrow cross-cutting channels via randomized polylines attenuated by activation probability.\n- Compose via `compose_braided(base_field, params)` layering base → belt → bars → threads → chutes and producing grayscale + facies masks (`thread`, `bar`, `chute`, `floodplain`).\nPseudo-code:\n```python\ndef compose_braided(params):\n    base = synthesize_field(params.shape, params.base_sigma, params.seed)\n    belt, threads = braided_threads(params)\n    bars = seed_bars(threads, params)\n    chutes = add_chutes(bars, params)\n    masks = {\"thread\": threads, \"bar\": bars, \"chute\": chutes, \"floodplain\": ~belt}\n    gray = blend_layers(base, masks, params.gray_weights)\n    return gray, masks\n```\n- Ensure parameters include thread count, width stats, bar spacing factor, chute intensity, and floodplain roughness.",
+        "testStrategy": "- Automated tests verifying `thread` mask contains expected number of connected components (close to thread count) via `scipy.ndimage.label`.\n- Validate bar spacing distribution using FFT-based peak finding to confirm mean spacing ≈ target factor.\n- Confirm chutes reduce bar connectivity (Euler characteristic changes) to expected range.\n- Snapshot test generated arrays against stored `.npz` fixtures for regression control.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement anastomosing generator with wetlands and fans",
+        "description": "Create narrow stable channel network routines, levee variants, marsh delineation, crevasse fans, and composition logic for the anastomosing environment.",
+        "details": "- Implement `anasto_paths(params)` to generate low-sinuosity narrow channels using deterministic branching (L-systems or constrained random walk) with constant width.\n- Add `add_levees_narrow(channel_mask, params)` performing light dilation (1–3 iterations) to build thin levees.\n- Create `make_marsh(base_field, channel_mask, params)` using distance thresholds and field quantiles to map wetland areas.\n- Implement `seed_fans(channel_mask, levee_mask, params)` placing lobate Gaussian splays at random levee breach points.\n- Compose in `compose_anasto(base_field, params)` layering base → wetlands → channels → levees → fans, returning grayscale plus masks (`channel`, `levee`, `marsh`, `floodplain`, `fan`).\nPseudo-code:\n```python\ndef compose_anasto(params):\n    base = synthesize_field(params.shape, params.base_sigma, params.seed)\n    channels = anasto_paths(params)\n    levees = add_levees_narrow(channels, params)\n    marsh = make_marsh(base, channels, params)\n    fans = seed_fans(channels, levees, params)\n    masks = {...}\n    gray = blend_layers(base, masks, params.gray_weights)\n    return gray, masks\n```\n- Package parameters in `AnastoParams` capturing branch count, levee strength, marsh fraction, fan count, floodplain variance.",
+        "testStrategy": "- Test branch generator ensures minimal sinuosity (compute path tortuosity) and consistent widths.\n- Validate marsh mask proportion hits configured range via histogram tests.\n- Check fans occur only where levees exist by asserting `(fans & ~levees).sum() == 0` in pytest.\n- Visual regression for stable multi-channel appearance using stored sample outputs.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement facies color mapping and geologic traceability documentation",
+        "description": "Provide consistent facies palettes, RGB compositing utilities, legends, and documentation linking geologic rules to code anchors.",
+        "details": "- Define environment-specific color palettes in `reporting.py` or dedicated `palette.py`, using `matplotlib.colors.to_rgba` for clarity.\n- Implement `facies_to_rgb(masks, env, palette)` returning uint8 RGB images; support legend creation via `matplotlib` inset axes and `Pillow` for label overlay.\n- Update notebooks to import palettes and display consistent legends.\n- Create/refresh `docs/GEOLOGIC_RULES.md` with table (Environment | Principle | Function | Notebook Cell Anchor) auto-generated by simple script (e.g., `tools/update_rules.py`) scanning docstrings marked with `@rule` decorator.\n- Add docstring annotations in generator functions referencing rule IDs for traceability.\nPseudo-code:\n```python\ndef facies_to_rgb(masks, env, palette):\n    rgb = np.zeros((*next(iter(masks.values())).shape, 3), dtype=np.uint8)\n    for facies, color in palette[env].items():\n        rgb[masks[facies]] = np.round(np.array(color) * 255).astype(np.uint8)\n    return rgb\n```\n- Include README section explaining color scheme and rule-tracking workflow.",
+        "testStrategy": "- Unit test palettes ensure all facies keys covered per environment and RGB output dtype is uint8.\n- Generate sample legend PNG and assert expected pixel colors using `numpy.unique`.\n- Validate `GEOLOGIC_RULES.md` script via CI check that fails if table out of date (compare regenerated content).\n- Manually inspect notebook markdown cells referencing rule IDs to ensure traceability.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Construct interactive widget framework and environment parameter panels",
+        "description": "Set up ipywidgets infrastructure in `v20a_interactive_rebuild.ipynb`, abstract slider creation, and expose environment-specific control panels.",
+        "details": "- Enable widgets extensions (`jupyter nbextension enable --py widgetsnbextension`) within environment setup instructions; ensure `jupyterlab_widgets` installed for Lab users.\n- Implement `interactive.py` with `make_sliders_for_env(env, params_schema)` returning `ipywidgets.VBox` containing appropriately labeled sliders/dropdowns bound to generator parameters via traitlets.\n- Create slider schemas for meandering, braided, anastomosing using `pydantic` or `dataclasses` for validation and tooltips describing geologic meaning.\n- Update notebook to instantiate tabs per environment, display parameter descriptions, and store state for preview execution.\nPseudo-code:\n```python\nfrom ipywidgets import FloatSlider, IntSlider, VBox\n\ndef make_sliders_for_env(schema):\n    widgets = {}\n    for field in schema:\n        widgets[field.name] = field.to_widget()\n    return VBox(list(widgets.values())), widgets\n```\n- Document widget usage instructions in notebook markdown cells for researchers.",
+        "testStrategy": "- Execute notebook with `nbclient` (headless) to confirm widget instantiation does not raise errors.\n- Use automated widget tests (e.g., `ipywidgets.WidgetTestCase`) to assert slider default values and bounds match spec.\n- Manual UX check ensuring labels and tooltips convey correct geologic context.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement sequential previews, live metrics, and batch export actions",
+        "description": "Wire interactive notebook callbacks to render stepwise previews, compute lightweight metrics, and save parameterized batches.",
+        "details": "- Add `sequential_preview(generator_fn, hooks)` producing thumbnail grid for each depositional step using `matplotlib`/`IPython.display` and caching intermediate masks.\n- Implement `live_metrics_panel(gray, masks)` computing quick isotropic variogram fit, fractal dimension, entropy via simplified functions for responsiveness; display with `ipywidgets.HTML`.\n- Wire `Preview` button callback to gather slider values, invoke generators, update preview + metrics asynchronously (use `ipywidgets.Output` and `asyncio` to avoid UI blocking).\n- Provide `run_param_batch(env, params, count, output_dir)` saving grayscale and RGB outputs with deterministic naming, capturing metadata (seed, parameter set) in CSV.\nPseudo-code:\n```python\ndef on_preview_clicked(_):\n    params = schema.parse_widgets(widget_map)\n    steps = generator.generate_steps(params)\n    thumbs = sequential_preview(steps)\n    metrics = live_metrics_panel(steps[-1].gray, steps[-1].masks)\n    preview_output.update(thumbs)\n    metrics_output.update(metrics)\n```\n- Add batch export button + progress bar (`tqdm.notebook`) and guardrails for invalid configurations.",
+        "testStrategy": "- Write unit tests mocking generator outputs to validate preview grid layout (image count matches expected steps).\n- Test live metrics against known patterns to ensure β and entropy values within expected tolerance.\n- Execute `run_param_batch(env, params, 2, tmp_path)` in pytest verifying files/CSV created and metadata correct.\n- Manual notebook check ensuring UI remains responsive during multiple previews.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Develop full statistics engine covering Phase 1 & 2 metrics",
+        "description": "Implement comprehensive spatial statistics in `stats.py`, including variograms, anisotropy, entropy, fractal measures, PSD, topology, and unified metric orchestration.",
+        "details": "- Implement `isotropic_variogram(image, max_lag, bin_width)` and `fit_powerlaw(lags, gamma)` with log-log regression using `scipy.stats.linregress` and edge-aware sampling.\n- Add `directional_variograms(image, angles, strip_width)` returning lag/gamma arrays per direction and compute anisotropy ratio & principal orientation.\n- Implement `fit_two_segment_powerlaw(lags, gamma)` splitting via brute-force breakpoint search minimizing residuals.\n- Add `global_entropy(gray, bins)` using `numpy.histogram` and normalized Shannon entropy; compute fractal dimension `D` and spectral fractal index (SFI) from β.\n- Implement `psd_anisotropy(gray)` leveraging 2D FFT, polar transform, ellipse fitting (`skimage.measure.regionprops`) to obtain aspect ratio & orientation.\n- Build topology metrics per facies using `scipy.ndimage` label counts for area, perimeter (via `skimage.measure.perimeter`), Euler characteristic, and connectivity.\n- Expose `compute_metrics(gray, masks, env)` returning consolidated dict with Phase 1 & 2 metrics, metadata, and validation flags.\nPseudo-code:\n```python\ndef compute_metrics(gray, masks, env):\n    iso = isotropic_variogram(gray, ...)\n    dir_stats = directional_variograms(gray, ...)\n    entropy = global_entropy(gray)\n    psd = psd_anisotropy(gray)\n    topology = {facies: facies_topology(mask) for facies, mask in masks.items()}\n    return {**iso, **dir_stats, **psd, **topology, \"env\": env}\n```\n- Optimize with `numba` or vectorization to keep runtime manageable for batch processing.",
+        "testStrategy": "- Craft synthetic fields (e.g., pure noise, directional stripes) to validate β estimates and anisotropy ratios against known ground truth.\n- Use golden metric dictionaries stored as fixtures to detect regressions in computational outputs.\n- Profile with `pytest --durations=10` ensuring compute_metrics execution stays within targets (e.g., <0.5s for 512×512).\n- Validate numerical stability by running double-precision comparisons and asserting no NaNs or infs appear.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Deliver reporting pipeline, orchestration, and non-regression safeguards",
+        "description": "Implement CSV/PDF reporting workflows, batch runner orchestration, smoke tests, documentation templates, and Task Master gating to ensure traceable, regression-safe releases.",
+        "details": "- Implement `reporting.py` with `save_csv(records, path)`, `build_mosaic_gray`, `build_mosaic_color_with_legend`, `write_env_pdf`, and `write_master_pdf` combining per-environment reports using ReportLab and PyPDF2.\n- Create `run_all_fluvial_batches(N, output_root)` orchestrating generation → metrics → CSV → mosaics → PDFs for each environment, using tqdm progress logging and retries.\n- Author `smoke_test.py` executing `run_all_fluvial_batches(3)` in fast mode (reduced resolution) and asserting expected artifacts exist; exit non-zero on failure.\n- Add docs: `docs/MEETING_RECAP_TEMPLATE.md`, notebook feature checklist markdown, and keep `AGENTS.md`/`README.md` synchronized.\n- Configure Task Master tasks (via CLI) representing generator → interactive → stats → reporting chain, ensuring `.taskmaster/tasks/` reflects dependencies and project name matches PRD.\n- Set up CI/pre-merge gate (GitHub Actions or Task Master hook) to run smoke test, regenerate GEOLOGIC_RULES table, and verify feature checklist checked before merge.\nPseudo-code:\n```python\ndef run_all_fluvial_batches(n, output_root):\n    for env in (\"meandering\", \"braided\", \"anastomosing\"):\n        records = []\n        for i in range(n):\n            gray, masks = GENERATORS[env](params_factory(env, i))\n            metrics = compute_metrics(gray, masks, env)\n            records.append(metrics)\n            save_realization_outputs(env, i, gray, masks, output_root)\n        csv_path = save_csv(records, output_root / f\"{env}.csv\")\n        mosaics = build_mosaics(env, output_root)\n        write_env_pdf(env, csv_path, *mosaics)\n    write_master_pdf(...)\n```\n- Update CHANGELOG and tagging workflow to align with v20a/v20 milestones.",
+        "testStrategy": "- Run `python smoke_test.py` locally and in CI; assert runtime <2 minutes and artifacts (CSV, mosaics, PDFs) exist via pytest integration test.\n- Validate PDF generation with unit tests using `pdfminer` to inspect text/table contents for expected headings.\n- Confirm Task Master workflow by invoking `task-master list` and ensuring statuses update after smoke test.\n- Conduct manual QA of master PDF for layout integrity and legend accuracy before release tagging.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-10-27T21:19:11.210Z",
+      "updated": "2025-10-27T21:19:11.210Z",
+      "description": "Tasks for fluvial-v1 context"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# Code owners by path
+* @cjh5690
+/src/ @cjh5690
+/notebooks/ @cjh5690
+/docs/ @cjh5690
+/.taskmaster/ @cjh5690
+/.cursor/ @cjh5690

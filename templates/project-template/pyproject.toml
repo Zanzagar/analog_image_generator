@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "__PACKAGE_NAME__"
+version = "0.0.0"
+description = "__PROJECT_NAME__"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "__AUTHOR_NAME__", email = "__AUTHOR_EMAIL__" }]
+license = { text = "MIT" }
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "pandas",
+]
+
+[project.optional-dependencies]
+widgets = ["ipywidgets"]
+reports = ["reportlab", "PyPDF2"]
+dev = ["black", "isort", "ruff", "pytest", "pre-commit", "nbstripout", "build"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]
+ignore = []
+

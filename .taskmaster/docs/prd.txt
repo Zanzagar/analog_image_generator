@@ -1,0 +1,342 @@
+Product Requirements Document (PRD)
+
+Project: Fluvial Analogs — Geologic Sequencing, Interactive Exploration, and Robust Statistical Analysis
+For: Integration with task-master-ai (MCP) and Codex inside Cursor IDE
+Professor review: 2025-11-12 feedback incorporated (sedimentary structures, petrology, and rule-book parity with GEOLOGIC_RULES.md).
+Companion doc: AGENTS.md (execution playbook & task breakdown)
+
+This PRD follows a rigorous, scope-first style and borrows structural cues from the attached reference PRDs to ensure clarity and completeness.
+
+1) Overview
+1.1 Problem & Value
+
+Research­ers need to generate realistic 2-D geologic analogs (fluvial first; aeolian/estuarine next) that explicitly follow depositional principles (not random textures), then quantify them with a robust, reproducible statistics stack (variograms, multifractals, entropy, PSD anisotropy, topology) and package outputs (CSVs, mosaics, PDFs) into a repeatable workflow. Prior notebooks drifted across versions and lost features (interactivity, doc, or stats) during iteration; we must stabilize and codify the full pipeline with strong non-regression guarantees and tool-assisted orchestration.
+
+1.2 Who it’s for
+
+PI/Professor & committee: verify geologic realism, see rule→code traceability, receive polished summaries.
+
+Researcher (you): quickly tune generators, run batches, compare styles with consistent metrics, and export publishable figures.
+
+Collaborators / future maintainers: pick up a modular, well-documented system with CI checks and reproducible outputs.
+
+1.3 Vision
+
+A single, extensible codebase that:
+
+Generates analogs by sequential geologic rules (meandering, braided, anastomosing → later aeolian/estuarine).
+
+Explores interactively (sliders + side-by-side sequential previews + live β/D/H).
+
+Analyzes with Phase 1 & 2 statistics (isotropic/directional variograms, multifractals, entropy, PSD anisotropy, topology).
+
+Reports automatically (CSVs, per-env PDFs, master PDF).
+
+Enforces non-regression with task orchestration (taskmaster.exe MCP), versioned tasks, and CI.
+
+2) Core Features
+F1. Hierarchy-Driven Generators (Fluvial v1)
+
+What: Procedural generation by physical sequencing and facies masks:
+
+Meandering: channel belt → sinuous centerline → variable bankfull width → levees → scroll bars → oxbows/clay plugs → floodplain.
+
+Braided: multi-threads → mid-channel bars (~4–5× width) → chutes → floodplain.
+
+Anastomosing: narrow/stable channels → levees → wetland floodbasins → crevasse-splay fans.
+
+Why: Geological plausibility and professor-verifiable sequencing.
+
+How: Each sub-step is a named function with docstrings mapping Geologic Principle → Code. Outputs include gray (analysis) and masks (per facies), then color via fixed palettes + universal legends.
+
+F2. Interactive Exploration (v20a)
+
+What: ipywidgets panel per environment; side-by-side sequential previews; live β/D/H metrics.
+
+Why: Enables teaching, rapid validation, and parameter-sensitivity demos.
+
+How: Environment-specific sliders (e.g., meander amplitude/width/levee/oxbowP; braided threadCount/barFactor; anasto branchCount/marshFrac/fans). A preview routine composes belt→channels→bars/levees/wetlands/fans→final gray→facies in one row. A lightweight param-batch saves gray & color images.
+
+Slider defaults validated against `research-documents/` sources:
+
+| Env | Slider | Range / Units | Default | Source |
+| --- | --- | --- | --- | --- |
+| Meandering | Control-point amplitude multiplier | [0.4, 1.6] × base amplitude | 1.0 | `depositional_system_fluvial_meandering-river.pdf` §2.2 |
+| Meandering | Bankfull width gradient (w₀→w₁) | [0.6, 1.4] × base width | (0.9, 1.2) | ibid. fig. 4 |
+| Meandering | Levee thickness (px) | [3, 10] px | 6 px | ibid. fig. 5 |
+| Meandering | Oxbow probability per bend | [0.0, 0.4] | 0.2 | ibid. §3 |
+| Braided | Thread count | [3, 9] | 5 | `depositional_system_fluvial_braided-river.pdf` §2 |
+| Braided | Mean channel width (px) | [12, 28] px | 18 px | ibid. table 1 |
+| Braided | Bar spacing factor | [3.5, 5.5] × mean width | 4.5× | ibid. fig. 4 |
+| Braided | Chute frequency | [0, 6] per belt | 3 | ibid. §3.3 |
+| Anastomosing | Branch count | [2, 6] | 4 | `depositional_system_fluvial_anastomosing-river.pdf` §2.1 |
+| Anastomosing | Marsh fraction | [0.2, 0.7] | 0.45 | ibid. §2.3 |
+| Anastomosing | Fan length (px) | [15, 60] px | 30 px | ibid. fig. 6 |
+| All | Random seed | [0, 2^31 − 1] | 42 | reproducibility requirement |
+
+F3. Full Statistics (v20 complete)
+
+What: Phase 1 + 2 metrics for every realization:
+
+Phase 1: Isotropic β, directional β(0,45,90,135) + anisotropy ratio, two-segment fit (β₁, β₂, h₀).
+
+Phase 2: Entropy H, Fractal D/SFI, PSD anisotropy (aspect, θ), topology per facies (area, compactness 4πA/P², connectivity 1−χ/A).
+
+Why: Quantitative proof of realism and style differentiation.
+
+How: compute_metrics(gray, masks, env) populates a metrics dict; CSV schema includes all fields.
+
+F4. Reporting
+
+What:
+
+CSV with all metrics.
+
+Mosaics (grayscale & color+legend).
+
+Per-environment PDF pages: side-by-side grayscale vs facies + histograms (β, D) + a summary table (means for β, D, PSD_AR, compact/conn per facies).
+
+Master PDF cover with overview stats + thumbnails + appended env reports.
+
+Why: One-click handout for your professor and archival record.
+
+How: reporting.py consolidates assets, uses ReportLab/PyPDF2, and honors strict layout.
+
+F5. Traceability & Docs
+
+What:
+
+Geologic Rules Index (document + notebook cells): Principle → Function/Line.
+
+Meeting recap template and README.
+
+AGENTS.md: role tasks, acceptance criteria, and non-regression checklist.
+
+Why: Ensures no future drift; proves we follow geology, not random textures.
+
+How: Docs maintained alongside code; CI checks for anchors (optional).
+
+3) User Experience
+Personas
+
+PI/Committee: skim master PDF, open Geologic Rules Index, drill into notebook if needed.
+
+Researcher: tune sliders, run param batch, run full batch+reports, compare CSVs.
+
+Collaborator: read AGENTS.md, open interactive notebook, run complete notebook, scan docs.
+
+Key Flows
+
+Explore: choose environment → move sliders → click Preview → see side-by-side sequences + β/D/H.
+
+Parameter batch: click Run Param Batch to save N realizations (gray + color).
+
+Full analysis: open v20 complete → run_all_fluvial_batches(N) → CSV + PDFs + master summary.
+
+Verification: open GEOLOGIC_RULES.md and matching cells to cross-check rules→code.
+
+UI/UX Considerations
+
+Slider ranges reflect geologic plausibility.
+
+Sequential steps are readable thumbnails across a row.
+
+Legend uses fixed palette per environment.
+
+Metrics shown next to preview; big numbers (β, D, H) for quick validation.
+
+4) Technical Architecture
+4.1 Modules
+src/
+  geologic_generators.py    # meandering/braided/anasto sub-steps, masks, palettes
+  interactive.py            # ipywidgets panels, sequential renderer, param-batch saver
+  stats.py                  # isotropic/directional variograms, two-seg fit, entropy, PSD, topology, wrappers
+  reporting.py              # CSV writer, mosaics, per-env PDF, master PDF
+  utils.py                  # fields, rasterize, IO helpers
+notebooks/
+  v20a_interactive_rebuild.ipynb
+  v20_complete_analysis.ipynb
+docs/
+  GEOLOGIC_RULES.md
+  AGENTS.md
+  MEETING_RECAP_TEMPLATE.md
+outputs/  (generated)
+
+4.2 Data Model (images & masks)
+
+gray: float32 [0,1], H×W.
+
+masks: dict of H×W binary arrays keyed by facies.
+
+rgb: H×W×3, from facies_to_rgb(masks, palette).
+
+4.3 APIs & Integrations
+
+taskmaster.exe (MCP): orchestrates tasks from AGENTS.md (feature branches, notebook edits, report runs); codifies logical dependency chain and prevents regressions by running batch + report after every generator change.
+
+Codex in Cursor IDE: coding agent to implement functions from this PRD; use built-in unit tests and quick visual smoke tests.
+
+Jupyter + ipywidgets: live UX.
+
+ReportLab/PyPDF2: PDF exports.
+
+SciPy/NumPy/Matplotlib: numerics & viz.
+
+4.4 Infrastructure
+
+Python ≥3.10, SciPy, ipywidgets, pandas, reportlab, PyPDF2.
+
+Optional CI: GitHub Actions to run a smoke workflow: generate 3 images/env, compute metrics, build one PDF page.
+
+5) Development Roadmap (scope-only; no timelines)
+Phase A — Baseline Generators & Docs
+
+Implement meandering/braided/anasto sub-functions by sequencing with masks.
+
+Add fixed palettes + legend.
+
+Write GEOLOGIC_RULES.md + notebook anchors.
+
+Phase B — Interactive v20a
+
+ipywidgets sliders (per env), side-by-side sequential preview, live β/D/H.
+
+Minimal param batch exporter (gray, color).
+
+Phase C — Full Stats & Reports (v20)
+
+Stats: isotropic/directional variograms, anisotropy ratio, two-segment fit, entropy, D/SFI, PSD anisotropy, topology per facies.
+
+Batch CSV + per-env PDF (side-by-side mosaics + hist + stats table) + master summary PDF.
+
+Phase D — Non-Regression & Orchestration
+
+Add a feature checklist cell to notebooks.
+
+Configure taskmaster.exe MCP to:
+
+parse AGENTS.md tasks,
+
+gate merges on passing smoke batch + report build,
+
+enforce doc anchors present.
+
+6) Logical Dependency Chain
+
+Fields & rasterization utilities →
+
+Generators (sub-steps) →
+
+Masks & facies color →
+
+Interactive preview (v20a) → visible proof of sequencing →
+
+Quick metrics (β/D/H) → sanity checks →
+
+Full metrics (Phase 1 & 2) →
+
+Reporting (CSVs/PDFs) →
+
+Master summary →
+
+taskmaster.exe gates changes with smoke run.
+
+This guarantees we “get to visible realism fast,” then layer analytics and reporting.
+
+7) Risks & Mitigations
+
+Risk: ipywidgets missing → Mitigation: install & enable; add fallback non-widget CLI preview.
+
+Risk: Feature regressions → Mitigation: non-regression checklist + MCP smoke batch + master PDF must build before merge.
+
+Risk: Geologic realism disputes → Mitigation: embed Principle → Code mapping; show sequential previews.
+
+Risk: Large PDFs slow CI → Mitigation: “smoke” uses N=3; full N runs only on demand.
+
+8) Appendix
+A. Geologic Rule → Code (Meandering excerpt)
+
+Rule: Scroll-bar banding indicates lateral accretion on inner bends.
+Code: dist = edt(~core) - edt(core); bands = cos(2π*dist/λ); belt = max(chan, 0.5*normalize(bands)).
+
+B. CSV Schema (key fields)
+
+beta_iso, beta_dir_0, beta_dir_45, beta_dir_90, beta_dir_135, anisotropy_ratio,
+
+beta_seg1, beta_seg2, h0, entropy_global, D, SFI,
+
+psd_aspect, psd_theta,
+
+area_*, compact_*, conn_* per facies.
+
+C. Reference PRDs used for structure & rigor
+
+See attached PRD styles for migration completeness, wrapper strategy, and Git workflow expectations.
+
+9) “Ready-to-Start” Checklist for task-master-ai (MCP)
+
+ Create repo skeleton as in Technical Architecture.
+
+ Add AGENTS.md, GEOLOGIC_RULES.md, README.md.
+
+ Implement utils.py (fields, rasterize).
+
+ Implement Meandering sub-steps → masks → facies.
+
+ Wire v20a: sliders, side-by-side preview, β/D/H.
+
+ Implement Braided and Anastomosing sub-steps → masks → facies.
+
+ Implement stats.py (Phase 1 + 2).
+
+ Implement reporting.py (CSV, mosaics, PDFs, master).
+
+ Implement v20 complete: run_all_fluvial_batches(N).
+
+ Add smoke script for MCP: generate N=3 envs, compute CSV, build one env PDF + master cover.
+
+ Add pre-merge gate: smoke run must pass, rules index anchors must exist.
+
+
+10) Sources
+- research-documents/geologic-depositional-environments/depositional_system_fluvial_meandering-river.pdf (slider ranges §§2–3, metrics figs. 5–8)
+- research-documents/geologic-depositional-environments/depositional_system_fluvial_braided-river.pdf (§§2–3)
+- research-documents/geologic-depositional-environments/depositional_system_fluvial_anastomosing-river.pdf (§§2–3)
+- research-documents/geologic-depositional-environments/depositional_environments_generation_rules.pdf (PSD/anisotropy appendix)
+- research-documents/geologic-depositional-environments/depositional_environments_overview.pdf
+
+11) Acceptance by Metrics
+- β_iso target bands per env: Meandering 0.65–1.1 (`depositional_system_fluvial_meandering-river.pdf` fig. 7); Braided 0.35–0.9 (`..._braided-river.pdf` fig. 5); Anastomosing 0.5–1.0 (`..._anastomosing-river.pdf` §3).
+- D derived from β (D = 3 − β/2): expect 2.1–2.6; reject runs outside ±0.1 of the cited bands.
+- Anisotropy ratio = max(β_dir)/min(β_dir): ≤1.2 for meandering/anastomosing; ≤1.5 for braided (`..._braided-river.pdf` fig. 6).
+- PSD aspect ratio from `depositional_environments_generation_rules.pdf` appendix: braided >2.0, meandering 1.2–1.8, anastomosing 1.0–1.4.
+- Topology per facies: point-bar compactness 0.35–0.65 and connectivity 0.4–0.8 (meandering fig. 8); braided bar compactness 0.25–0.5 with connectivity <0.6.
+- Reporting must flag any metric violations and link to the realization ID for reruns.
+- Sedimentary structure QA: ≥80% of realizations must exhibit at least one channel-fill mask, fining-upward texture, lateral accretion surface, and overbank mud unit per professor guidance; cross-bedding/ripple overlays captured in metadata.
+- Petrology QA: Mineralogical tags (feldspar + kaolinite dominant, absence of glauconite/calcite/ferrous) must be recorded for each realization; cement and mud-clast flags stored in metrics for downstream property modeling.
+
+12) Out of Scope & Assumptions
+- No 3D stratigraphic stacking in this phase
+- No hydrodynamic simulation; morphology is procedural but rule-driven
+- Images are 2D arrays; units in pixels unless otherwise noted
+
+13) Glossary
+- β (beta): power-law slope of variogram (log–log)
+- D: fractal dimension; D = 3 − β/2 for 2D surfaces
+- H: Shannon entropy of grayscale histogram
+- PSD aspect/θ: ellipse fit to frequency-domain power; aspect ratio and orientation
+- Compactness: 4πA/P²; Connectivity: 1 − χ/A (χ=Euler characteristic)
+F6. Sedimentary Structures, Petrology, and Property Trends
+
+What:
+- Channel-fill deposits with erosional bases captured via dedicated `channel_fill_sandstone()` routines and associated masks.
+- Fining-upward sequences, cross-bedding (trough/planar), ripple marks, and lateral accretion surfaces rendered through textural overlays applied inside the belt masks.
+- Overbank deposits (mudstones, paleosols, coal/pond facies) tied to levee overtopping frequency; massive-type sandstones represented as high-thickness, structureless zones atop bars/overbank areas.
+- Particle shape, mineralogy (feldspar + kaolinite–rich, absence of glauconite/calcite/ferrous compounds), cement signatures (clay clasts, kaolinite cement), scour surfaces, mud clasts, heterogeneity and paleocurrent statistics recorded per realization.
+
+Why:
+- Ensures the continuum-scale analogs respect expected sedimentary structures and diagenetic trends, fulfilling professor guidance for teaching-quality reservoirs.
+
+How:
+- Each feature maps to a GEOLOGIC_RULES.md entry (see new “Fluvial — Sedimentary Structures & Petrology” section) with notebook anchors that describe implementation details or property trend approximations when sub-pixel fidelity is not practical.
+- Property trends (e.g., fining-upward, mineral constraints) are injected into statistics/reports as additional metrics fields for verification.

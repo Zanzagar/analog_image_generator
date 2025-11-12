@@ -1,0 +1,6 @@
+# Code owners by path
+* @__OWNER__
+/src/ @__OWNER__
+/notebooks/ @__OWNER__
+/docs/ @__OWNER__
+
