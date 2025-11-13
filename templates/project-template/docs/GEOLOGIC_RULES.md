@@ -9,4 +9,3 @@ Usage:
 Env | Principle | Code Anchor
 --- | --- | ---
 __ENV_NAME__ | __Principle__ | `__PACKAGE_NAME__.__module__.function(...)`
-

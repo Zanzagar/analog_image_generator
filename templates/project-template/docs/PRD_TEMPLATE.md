@@ -30,4 +30,3 @@
 
 8) Glossary
 - <terms>
-

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
 
-
-def compute_metrics(gray: Tuple, masks: Dict[str, Tuple], env: str) -> Dict[str, float]:
+def compute_metrics(gray: tuple, masks: dict[str, tuple], env: str) -> dict[str, float]:
     """Compute Phase 1/2 metrics for a single realization."""
     raise NotImplementedError("Metrics implementation arrives with STAT milestone.")

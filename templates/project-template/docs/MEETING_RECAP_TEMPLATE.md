@@ -15,4 +15,3 @@ Date: {{DATE}}
 
 ## Next steps
 - Action items and owners.
-

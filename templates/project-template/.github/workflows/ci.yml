@@ -35,4 +35,3 @@ jobs:
         continue-on-error: true
         run: |
           python scripts/smoke_test.py
-

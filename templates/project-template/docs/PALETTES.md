@@ -12,4 +12,3 @@ env:
   - facies: <name>
     color: <hex or rgb>
 ```
-

@@ -30,4 +30,3 @@ pip install -e .
 
 ## License
 MIT
-

@@ -3,8 +3,6 @@
 Generates minimal output or validates environment when implemented.
 """
 
-import sys
-
 
 def main() -> int:
     print("Smoke test placeholder: environment OK")

@@ -26,4 +26,3 @@ Product Requirements Document (PRD) — __SECONDARY_PRD_NAME__
 
 8) Glossary
 - <terms>
-

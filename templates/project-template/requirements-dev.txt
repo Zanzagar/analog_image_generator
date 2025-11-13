@@ -5,4 +5,3 @@ pre-commit
 pytest
 nbstripout
 build
-

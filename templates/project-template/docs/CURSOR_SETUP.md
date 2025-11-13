@@ -16,4 +16,3 @@ pytest -q
 ## Using AI chat
 - Cursor phase: author PRD(s), AGENTS.md, review docs.
 - Codex phase: enable Task Master MCP; parse PRDs into tags; analyze/expand tasks; implement.
-

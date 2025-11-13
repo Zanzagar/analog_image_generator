@@ -143,4 +143,3 @@ git init && git add -A && git commit -m "chore: scaffold from template"
 Notes
 - Do not run Task Master until PRDs are approved (professor + Codex review gate).
 - Update README badge to real <OWNER>/<REPO> before first push.
-

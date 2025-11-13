@@ -23,4 +23,3 @@ pytest -q
 
 ## 5. Open a PR
 - Ensure CI is green and use the PR checklist
-

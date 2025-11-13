@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable
+from collections.abc import Iterable
 
 
-def build_sliders(env: str) -> Dict[str, Dict[str, float]]:
+def build_sliders(env: str) -> dict[str, dict[str, float]]:
     """Return slider metadata for the requested environment.
 
     Each slider definition includes at least min, max, step, and default.
@@ -13,6 +13,6 @@ def build_sliders(env: str) -> Dict[str, Dict[str, float]]:
     raise NotImplementedError("Interactive controls land with v20a implementation.")
 
 
-def preview_sequence(env: str, params: Dict[str, float], seeds: Iterable[int]) -> None:
+def preview_sequence(env: str, params: dict[str, float], seeds: Iterable[int]) -> None:
     """Render sequential previews for the Codex/Cursor demo notebooks."""
     raise NotImplementedError("Preview pipeline will be implemented per Task Master subtasks.")

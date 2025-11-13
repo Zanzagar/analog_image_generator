@@ -209,7 +209,7 @@ cd /home/cjh5690/projects/analog_image_generator
 task-master init --rules codex,cursor --yes
 ```
 
-**Acceptance**: 
+**Acceptance**:
 - `.taskmaster/` directory structure created
 - `config.json` exists with default models
 - Shell aliases added to `.bashrc`
@@ -269,7 +269,7 @@ Active Model Configuration:
    task-master complexity-report
    ```
 
-**Acceptance**: 
+**Acceptance**:
 - `tasks.json` created with generated tasks
 - Complexity report shows analysis per task
 - Tasks align with PRD requirements
@@ -311,7 +311,7 @@ task-master show 1
    Can you help me expand task 2?
    ```
 
-**Acceptance**: 
+**Acceptance**:
 - Cursor connects to MCP without errors
 - AI can query and manipulate tasks
 - Interactive workflow feels natural
@@ -1102,7 +1102,7 @@ Your geologic modeling workflow (AGENTS.md) now has intelligent task management 
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-10-27  
-**Maintained By**: DOC + CONFIG  
+**Document Version**: 1.0
+**Last Updated**: 2025-10-27
+**Maintained By**: DOC + CONFIG
 **Next Review**: After M7 completion

@@ -27,4 +27,3 @@
 
 ## Cadence
 - parse-prd → analyze-complexity → expand → implement → set-status → (optional) generate.
-

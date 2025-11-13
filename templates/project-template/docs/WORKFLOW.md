@@ -29,4 +29,3 @@ Use Cursor to author PRDs and AGENTS.md first, set up GitHub hygiene (CI, templa
 
 5) QA & Release
 - Run smoke tests; update CHANGELOG; open PR with artifacts; merge when green.
-

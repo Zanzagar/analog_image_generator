@@ -80,4 +80,3 @@ Then mark the subtask in-progress and continue step-by-step, appending notes as 
 ```
 Set the status for tasks/subtasks according to progress and show a summary.
 ```
-

@@ -34,4 +34,3 @@
 ## To-dos
 - [ ] Codex review gate complete
 - [ ] Package-first restructure after switch
-
