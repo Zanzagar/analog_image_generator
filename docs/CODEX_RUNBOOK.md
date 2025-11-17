@@ -4,6 +4,7 @@ Use these verbatim with the standalone Codex CLI and your WSL terminal. Keep thi
 
 0) Prereqs (one time)
 - Codex CLI installed and authenticated (auth.json present).
+- Install/enable Context7 MCP in Cursor (remote or `npx` entry; see docs/TASKMASTER_WSL_SETUP.md) so prompts can pull up-to-date docs by saying “use context7”.
 - Do not enable Task Master or parse PRDs until professor approves PRDs + Codex review findings.
 
 1) Initialize GitHub repository (terminal)

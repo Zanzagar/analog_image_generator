@@ -34,3 +34,34 @@
 ## Cadence
 - parse-prd → analyze-complexity → expand → implement → set-status → (optional) generate.
 - Run `task-master status` before destructive commands to confirm the active tag/context.
+
+## Context7 MCP (Optional)
+Context7 streams up-to-date library docs via MCP. Add one of these entries (global `~/.cursor/mcp.json` or project `.cursor/mcp.json`). Obtain an API key at [context7.com/dashboard](https://context7.com/dashboard) for higher limits/private repos.
+
+### Remote server
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "YOUR_CONTEXT7_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### Local `npx` server
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_CONTEXT7_API_KEY"]
+    }
+  }
+}
+```
+
+> **Tip:** create a Cursor rule such as “Always use context7 when I need library/API docs or setup steps” so the assistant auto-invokes the MCP tools without typing `use context7`.

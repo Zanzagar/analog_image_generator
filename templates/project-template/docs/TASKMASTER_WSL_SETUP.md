@@ -27,3 +27,34 @@
 
 ## Cadence
 - parse-prd → analyze-complexity → expand → implement → set-status → (optional) generate.
+
+## Context7 MCP (Optional)
+Add Context7 to `.cursor/mcp.json` so Cursor can pull fresh docs:
+
+### Remote
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "YOUR_CONTEXT7_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### Local `npx`
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_CONTEXT7_API_KEY"]
+    }
+  }
+}
+```
+
+> Tip: add a Cursor rule instructing the assistant to “use context7” automatically for library/setup questions.

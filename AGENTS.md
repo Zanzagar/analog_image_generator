@@ -372,6 +372,36 @@ task-master show 1
 
 **Precedence**: Project-local config overrides global config
 
+### 6.3 Context7 MCP (Optional)
+
+Context7 streams up-to-date library docs into Cursor. Connect either to their hosted MCP or to the local `npx` server:
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "YOUR_CONTEXT7_API_KEY"
+      }
+    }
+  }
+}
+```
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_CONTEXT7_API_KEY"]
+    }
+  }
+}
+```
+
+> Add a Cursor rule (“Always use context7 when I need library/API documentation”) so assistants auto-invoke the MCP tools instead of typing `use context7` each time.
+
 ---
 
 ### 6.3 Task Master Config (`.taskmaster/config.json`)
