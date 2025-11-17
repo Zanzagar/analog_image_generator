@@ -1,0 +1,77 @@
+# Task ID: 3
+# Title: Implement Linear/Seif dune generator with ridge continuity controls
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Generate linear dune fields that honor mean wind direction, secondary wind kinks, and target ridge continuity metrics.
+# Details:
+Add `aeolian_linear_ridges` to extrude sinusoidal ridges along θ_wind, apply secondary wind perturbations, and cut interdune corridors. Compute ridge continuity metric (largest crest component / total crest pixels) and expose it for stats. Respect defect rate ρ by randomly removing segments. Update masks to include ridge/stoss/slipface states, storing continuity metadata.
+Pseudo-code:
+```
+def build_linear_field(params):
+    spines = seed_parallel_lines(theta=params.theta_deg, spacing=params.lambda_px)
+    spines = add_secondary_kinks(spines, secondary_theta=params.theta_deg+30*q)
+    crest_mask = enforce_continuity(spines, rho=params.defect_rate)
+    metrics = {"ridge_continuity": largest_component(crest_mask)}
+    return crest_mask, metrics
+```
+Document anchor `aeolian_ridge_continuity` and note default ranges from linear-dune PDF.
+
+# Test Strategy:
+Unit tests should (a) compute ridge continuity ≥0.7 for default q, (b) drop into 0.5–0.6 when ρ≈0.25, and (c) confirm PSD orientation difference ≤10°. Use mocked params to compare measured orientation via FFT vs. θ.
+
+# Subtasks:
+## 1. Define aeolian_linear_ridges builder API and scaffolding [pending]
+### Dependencies: None
+### Description: Design and stub an aeolian_linear_ridges (or equivalent) builder in geologic_generators.py that accepts AeolianParams and shared base fields and fits into the existing generate_aeolian dispatch pattern.
+### Details:
+Create a new aeolian_linear_ridges (or build_linear_field) function in src/analog_image_generator/geologic_generators.py that consumes AeolianParams plus any precomputed base grids from Task 1, and returns a grayscale image plus a masks_dict and metrics dict. Ensure the signature and return types are consistent with the emerging aeolian API (e.g., barchan generator), including keys for crest, stoss, slipface, and interdune masks, and a slot for aeolian_ridge_continuity. Wire the function into generate_aeolian or the appropriate registry so that the linear style can be selected by env or style flag without breaking existing stubs.
+
+## 2. Implement parallel spine seeding aligned with wind direction and spacing [pending]
+### Dependencies: 3.1
+### Description: Create a spine seeding routine that generates approximately parallel ridge centerlines aligned with params.theta_deg and spaced using params.lambda_px and q.
+### Details:
+Implement a helper such as seed_parallel_lines that uses Aeolian coordinate rotation utilities to generate a set of line centerlines (spines) across the domain at orientation theta_deg. Use params.lambda_px as the nominal spacing between spines, modulated if needed by transport parameter q, and ensure full coverage of the simulation domain including edges. Represent spines in a convenient form (e.g., arrays of coordinates or a binary mask) that will later be rasterized into crest_mask and can be perturbed by secondary wind effects.
+
+## 3. Add secondary wind kink perturbations based on research PDF [pending]
+### Dependencies: 3.2
+### Description: Superimpose secondary wind-induced kinks onto the linear spines using a secondary direction function informed by the linear-dune research PDF and q.
+### Details:
+Extend the spine generation pipeline with an add_secondary_kinks step that perturbs the base parallel spines according to a secondary wind direction (e.g., theta_deg plus an offset that scales with q or a separate parameter). Implement sinusoidal or piecewise-linear kinks along each spine with controllable wavelength and amplitude, referencing guidance from research-documents/depositional_system_aeolian_linear-dune.pdf in docstrings. Ensure the perturbations preserve overall ridge continuity and do not self-intersect excessively, producing geologically plausible linear or seif dune shapes.
+
+## 4. Construct crest mask and aeolian_ridge_continuity metric via components [pending]
+### Dependencies: 3.2, 3.3
+### Description: Rasterize perturbed spines into a crest_mask and implement a ridge continuity metric based on connected-component analysis of crest pixels.
+### Details:
+Implement a rasterization step that converts spine geometries into a binary crest_mask at image resolution, ensuring consistent crest thickness and connectivity. Using scipy.ndimage or skimage, perform connected-component labeling on crest_mask to compute the size of each crest component, then define aeolian_ridge_continuity as the ratio of the largest component area to the total number of crest pixels. Store this metric in the metrics dict alongside any auxiliary values (e.g., number of components) while keeping the definition stable for downstream stats.compute_metrics.
+
+## 5. Implement interdune corridor carving and stoss/slipface mask differentiation [pending]
+### Dependencies: 3.4
+### Description: Derive interdune corridors from the crest_mask and generate separate stoss and slipface masks consistent with wind direction and dune morphology.
+### Details:
+Using the crest_mask and wind direction, implement operations that carve interdune corridors by applying distance transforms, thresholding, and morphological opening or erosion to separate interdune lows from ridge bodies. Use wind-aligned gradients or rotated coordinates to classify pixels on the upwind side of crests as stoss and the downwind side as slipface, producing mutually exclusive crest, stoss, slipface, and interdune masks. Ensure the resulting masks respect AeolianParams (e.g., f_interdune controls mean interdune area fraction) and are suitable for later gray shading and facies mapping.
+
+## 6. Apply defect_rate-driven crest breaking while preserving interpretable continuity [pending]
+### Dependencies: 3.4, 3.5
+### Description: Introduce defect_rate-controlled breaking of crest segments and ensure the aeolian_ridge_continuity metric degrades smoothly and remains interpretable for stats.
+### Details:
+Implement a routine that takes an initial crest_mask and probabilistically removes or gaps crest segments according to params.defect_rate, for example by sampling segments or along-crest positions to delete while avoiding total ridge destruction. Recompute aeolian_ridge_continuity on the modified crest_mask and verify that continuity decreases monotonically with increasing defect_rate but remains stable enough for comparison across runs. Expose any additional metadata needed (e.g., number of breaks, mean segment length) in the metrics dict without changing the core continuity definition.
+
+## 7. Finalize aeolian_linear_ridges outputs compatible with stats.compute_metrics [pending]
+### Dependencies: 3.1, 3.5, 3.6
+### Description: Ensure the linear dune generator returns grayscale, masks_dict, and metrics in a schema consistent with the stats engine and other aeolian generators.
+### Details:
+Refine the aeolian_linear_ridges (or build_linear_field) return structure so that it includes a primary grayscale image, a masks_dict with standardized keys (e.g., crest, stoss, slipface, interdune, and any ridge index masks), and a metrics dict containing aeolian_ridge_continuity and orientation statistics derived from PSD analysis. Align metric names, units, and types with the expectations of stats.compute_metrics and any shared Aeolian helpers so that Task 8 can consume the continuity metric without special casing. Update generate_aeolian wiring if necessary to route aeolian style selection and outputs consistently.
+
+## 8. Document and wire aeolian_ridge_continuity anchors in GEOLOGIC_RULES and notebook [pending]
+### Dependencies: 3.4, 3.6, 3.7
+### Description: Add the aeolian_ridge_continuity geologic rule and code anchor to docs/GEOLOGIC_RULES.md and notebooks/aeolian.ipynb with proper anchor IDs and references.
+### Details:
+Update docs/GEOLOGIC_RULES.md to include a new row describing the aeolian_ridge_continuity principle, referencing the code anchor analog_image_generator.geologic_generators.aeolian_linear_ridges (or the specific continuity helper) and documenting default parameter ranges based on the linear-dune research PDF. In notebooks/aeolian.ipynb, add or update a markdown cell with an anchor ID following the anchor-aeolian-aeolian_ridge_continuity convention that explains how the continuity metric is computed and interpreted. Ensure the rule and notebook anchors stay in sync and follow the existing geologic rules discipline.
+
+## 9. Create linear dune generator tests for continuity, orientation, and defect effects [pending]
+### Dependencies: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
+### Description: Add a dedicated test module (or extend the barchan tests) to validate PSD-based orientation alignment, ridge continuity ranges, and degradation with increasing defect_rate for the linear generator.
+### Details:
+Create tests/test_linear_generator.py or extend tests/test_barchan_generator.py with a suite of pytest cases that instantiate AeolianParams for linear dunes, run the aeolian_linear_ridges generator, and compute diagnostic metrics from the outputs. Implement tests that verify the dominant PSD-based orientation of the crest field matches theta_deg within about 10 degrees, that aeolian_ridge_continuity is ≥0.7 for default q and low defect_rate, and that continuity systematically drops into the 0.5–0.6 range when defect_rate is around 0.25. Include checks across multiple random seeds to ensure robustness and adjust tolerances to avoid flakiness while still catching regressions.
+

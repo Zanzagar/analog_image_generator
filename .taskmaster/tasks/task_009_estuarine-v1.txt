@@ -1,0 +1,37 @@
+# Task ID: 9
+# Title: Document estuarine rules, anchors, and workflow updates
+# Status: pending
+# Dependencies: 4, 7, 8
+# Priority: medium
+# Description: Update documentation and notebook anchors so every new estuarine principle/function is traceable per AGENTS.md guidelines.
+# Details:
+- Extend `docs/GEOLOGIC_RULES.md` with entries for the new helper functions (`tide_channel_network`, `wave_shoreface_bars`, `generate_estuarine`, etc.) linking to notebook anchors such as `notebooks/estuarine.ipynb#anchor-estuarine-tide-channels`.
+- Create or update `notebooks/estuarine.ipynb` markdown cells to include anchors describing each implemented principle and slider, referencing Jiwei et al. 2025 figures.
+- Update `.taskmaster/docs/prd_estuarine.txt` and README/WORKFLOW sections if parameter naming or acceptance logic changed during implementation, keeping the tables in sync.
+- Document the new CSV schema and PDF outputs in `docs/WORKFLOW.md` or a dedicated reporting section to help QA/REP roles.
+- Summarize changes in `docs/MEETING_RECAP_*.md` or changelog entries referencing the acceptance criteria being satisfied.
+
+# Test Strategy:
+- Manual doc review checklist ensuring every code anchor appears both in GEOLOGIC_RULES and the notebook anchor column (per AGENTS instructions).
+- Automated Markdown tests (e.g., custom pytest that parses GEOLOGIC_RULES) verifying anchors reference valid notebook IDs and function names exist in code.
+- Spell-check/markdown-lint passes via pre-commit to catch link or formatting regressions.
+
+# Subtasks:
+## 1. Extend GEOLOGIC_RULES for estuarine helper functions and anchors [pending]
+### Dependencies: 9.4, 9.7, 9.8
+### Description: Update docs/GEOLOGIC_RULES.md so all new estuarine helper functions and principles are documented and mapped to code and notebook anchors.
+### Details:
+Identify all estuarine-related functions (e.g., analog_image_generator.geologic_generators.tide_channel_network, wave_shoreface_bars, generate_estuarine, and related helpers) and add rows for each in docs/GEOLOGIC_RULES.md. For every row, fill in the geologic principle, key parameters, acceptance notes, and a code anchor using the fully qualified function name plus a notebook anchor pointing into notebooks/estuarine.ipynb (e.g., #anchor-estuarine-tide-channels). Ensure naming follows the anchor-<env>-<principle> convention and that existing fluvial/other entries remain unchanged while the estuarine block is clearly separated and complete.
+
+## 2. Create and align estuarine notebook anchors for principles and sliders [pending]
+### Dependencies: 9.4, 9.7, 9.8
+### Description: Author or revise markdown cells in notebooks/estuarine.ipynb so every estuarine principle, generator, and slider is documented and anchored.
+### Details:
+Open notebooks/estuarine.ipynb and add or update markdown cells that describe each implemented estuarine principle (tide channels, wave shoreface bars, mixed-energy behavior, stacked packages if present) and each user-facing slider. For every principle, create an anchor ID like anchor-estuarine-tide-channels that matches the entries planned in docs/GEOLOGIC_RULES.md, and reference the appropriate Jiwei et al. 2025 figures or other literature where applicable. Ensure that each slider description points back to the corresponding parameter name and that anchors are unique, consistently formatted, and easy to scan during reviews.
+
+## 3. Update estuarine PRD, workflow, and reporting docs for new schema and outputs [pending]
+### Dependencies: 9.4, 9.7, 9.8
+### Description: Synchronize PRD, workflow, and reporting documentation for estuarine parameters, CSV schema, and PDF outputs with the latest implementation.
+### Details:
+Review the current estuarine implementation (parameters, acceptance logic, CSV fields, and PDF figures) and update .taskmaster/docs/prd_estuarine.txt so parameter names, ranges, defaults, and acceptance criteria match the code and slider metadata. Edit docs/WORKFLOW.md (or the dedicated reporting section) to describe the estuarine CSV schema, key columns, PDF layouts, and any QC flags or stacked-package metadata that QA/REP rely on. Finally, add a concise summary of these estuarine documentation and workflow updates to the appropriate docs/MEETING_RECAP_*.md or changelog entry, explicitly calling out which acceptance criteria from AGENTS.md are now satisfied.
+

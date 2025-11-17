@@ -1,0 +1,83 @@
+# Task ID: 5
+# Title: Add aeolian sedimentary feature overlays and property trends
+# Status: pending
+# Dependencies: 2, 3, 4
+# Priority: medium
+# Description: Implement overlays for cross-bedding, reactivation surfaces, inverse grading, grain rounding, surface textures, erosional events, impacts, and cementation metadata.
+# Details:
+Create helpers listed in `docs/GEOLOGIC_RULES.md` rows 57–65 (`aeolian_cross_bedding_masks`, `aeolian_inverse_grading_profile`, `aeolian_grain_rounding`, `aeolian_surface_impacts`, `aeolian_cementation`). Integrate them with mask outputs from Tasks 2–4, ensuring overlays add channels for dip azimuth histograms, gradation direction, roundedness index, surface roughness, event counts, and cement type tags for reporting. Link to palette entries to tint cemented regions red-orange.
+Pseudo-code:
+```
+def apply_sedimentary_overlays(masks, params):
+    cross_sets = synthesize_cross_beds(masks["slipface"], dip=params.theta_deg)
+    rounding = compute_rounding(params.q, transport_distance(masks))
+    impacts = sprinkle_impacts(masks["crest"], intensity=params.defect_rate)
+    cement = aeolian_cementation(masks, params.cement_type)
+    return {**masks, **cross_sets, "rounding": rounding, ...}
+```
+Update notebook anchors and PRD references to reflect implemented controls.
+
+# Test Strategy:
+Expand pytest suite to verify (a) at least one cross-bed set >20° dip exists per realization, (b) roundedness index stays within 0.6–0.9 for default params, (c) gradation metadata flips sign when invert toggle changes, and (d) event counts increase when simulating wind shifts.
+
+# Subtasks:
+## 1. Design aeolian sedimentary overlay schema and key conventions [pending]
+### Dependencies: None
+### Description: Define the masks, numeric arrays, and metadata dict structures used to represent aeolian sedimentary overlays that attach cleanly to existing dune masks.
+### Details:
+Survey existing aeolian mask outputs from Tasks 2–4 in src/analog_image_generator/geologic_generators.py and design a consistent overlay schema (e.g., extra boolean masks, float fields, and small metadata dicts) that can be merged into the main masks_dict. Specify key names for cross-beds, reactivation surfaces, inverse grading, grain rounding, surface roughness, impact/event overlays, and cementation tags, ensuring shapes align with core height/width grids and that metadata fields can support dip azimuth histograms, grading direction flags, rounding indices, roughness metrics, event counts, and cement type labels.
+
+## 2. Implement aeolian_cross_bedding_masks helper with reactivation surfaces [pending]
+### Dependencies: 5.1
+### Description: Create aeolian_cross_bedding_masks in geologic_generators.py to synthesize cross-bed sets and optional reactivation surfaces tied to slipface and crest masks.
+### Details:
+In src/analog_image_generator/geologic_generators.py, implement aeolian_cross_bedding_masks(masks, params) that uses slipface and crest masks from Tasks 2–4 to generate cross-bedding and reactivation-surface overlays. Use AeolianParams (e.g., theta_deg and any cross-bedding parameters) to control dip magnitude and azimuth, producing one or more boolean or integer masks encoding cross-bed set membership and reactivation planes. Compute and store dip azimuth histograms and representative dip angles in a metadata dict consistent with the overlay schema from subtask 1.
+
+## 3. Implement aeolian_inverse_grading_profile helper and grading metadata [pending]
+### Dependencies: 5.1
+### Description: Add aeolian_inverse_grading_profile to compute vertical or downslope grading trends and track grading direction, including invert_gradation toggle handling.
+### Details:
+Implement aeolian_inverse_grading_profile(masks, params) in src/analog_image_generator/geologic_generators.py to produce one or more float arrays describing grain size or intensity as a function of position (e.g., along slipface normals or vertical coordinate) for aeolian dunes. Introduce metadata fields such as grading_direction (e.g., +1 for normal, -1 for inverse) and any summary statistics needed for reporting. Ensure that an invert_gradation or similar toggle in AeolianParams flips both the underlying gradient sign and the corresponding metadata flag, aligned with the overlay schema defined earlier.
+
+## 4. Implement aeolian_grain_rounding helper and surface texture indices [pending]
+### Dependencies: 5.1
+### Description: Create aeolian_grain_rounding to model grain rounding and surface texture trends from transport distance and q, returning stable roundedness indices.
+### Details:
+In src/analog_image_generator/geologic_generators.py, implement aeolian_grain_rounding(masks, params) that estimates transport distance (e.g., via hop counts, distance transforms, or along-wind integration) and uses q and other AeolianParams to produce a roundedness index field over the dune or selected facies. Add complementary surface texture or roughness metrics if required by GEOLOGIC_RULES rows 57–65. Ensure outputs are numerically stable and bounded (e.g., roundedness index in a 0–1 or 0.6–0.9 band for default params) and store summary statistics in metadata for later stats and reporting.
+
+## 5. Implement aeolian_surface_impacts helper for impact and erosional events [pending]
+### Dependencies: 5.1
+### Description: Implement aeolian_surface_impacts to overlay impact and erosional event markers that modify or annotate existing masks and track event counts.
+### Details:
+Add aeolian_surface_impacts(masks, params) in src/analog_image_generator/geologic_generators.py that sprinkles impacts or erosional events preferentially along crest, stoss, or slipface regions using masks from Tasks 2–4 and parameters such as defect_rate or wind shift frequency. Represent impacts as additional boolean or integer masks or as sparse event maps, and compute per-region event counts and optional roughness deltas. Store event_count fields and any roughness metrics in the overlay metadata, ensuring the structure matches the schema defined in subtask 1.
+
+## 6. Implement aeolian_cementation helper and palette-based tinting [pending]
+### Dependencies: 5.1
+### Description: Create aeolian_cementation to tag cemented regions and link them to docs/PALETTES.md entries for red–orange tinting and cement type metadata.
+### Details:
+Implement aeolian_cementation(masks, params) in src/analog_image_generator/geologic_generators.py that takes cement_type and other AeolianParams to derive a cementation mask (or graded field) describing which portions of the dune are cemented. Consult docs/PALETTES.md to map cement_type values to palette keys and define a red–orange tint channel or RGB indices for cemented areas. Attach a cementation metadata dict including cement_type, coverage fraction, and any palette keys used so that downstream rendering and reporting can consistently tint cemented regions.
+
+## 7. Compose apply_sedimentary_overlays entry point to call all helpers [pending]
+### Dependencies: 5.2, 5.3, 5.4, 5.5, 5.6
+### Description: Define apply_sedimentary_overlays in geologic_generators.py that consumes dune masks and AeolianParams, calls all aeolian overlay helpers, and returns an enriched masks_dict.
+### Details:
+Implement apply_sedimentary_overlays(masks, params) in src/analog_image_generator/geologic_generators.py following the provided pseudo-code, invoking aeolian_cross_bedding_masks, aeolian_inverse_grading_profile, aeolian_grain_rounding, aeolian_surface_impacts, and aeolian_cementation. Ensure that cross-bedding and reactivation surfaces are correctly anchored to slipface and crest masks, that dip and azimuth controls come from AeolianParams, and that all overlay outputs are merged into the masks_dict using the schema defined in subtask 1. Return both updated masks and any aggregated metadata structures needed for later stats and reporting without breaking the existing generator API.
+
+## 8. Wire overlay metadata fields into masks_dict contract for downstream use [pending]
+### Dependencies: 5.7
+### Description: Ensure that dip histograms, grading direction, rounding indices, roughness, event counts, and cement tags are consistently exposed in the masks and metadata contract.
+### Details:
+Audit the outputs of apply_sedimentary_overlays to confirm that every required property—dip azimuth histograms, representative dip angles, grading_direction flags, roundedness indices, surface roughness metrics, impact and erosional event counts, and cement type tags—is stored under clear, documented keys either in masks_dict or in a paired metadata dict. Update or add lightweight data classes or typed dicts if appropriate so Task 6 (pipeline), Task 8 (metrics), and Task 9 (reporting) can consume these fields without ad hoc parsing.
+
+## 9. Update GEOLOGIC_RULES and aeolian notebook anchors for new overlays [pending]
+### Dependencies: 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8
+### Description: Bring docs/GEOLOGIC_RULES.md rows 57–65 and aeolian notebook anchors in sync with the implemented overlay helpers and entry point.
+### Details:
+Edit docs/GEOLOGIC_RULES.md rows 57–65 so that each aeolian helper (aeolian_cross_bedding_masks, aeolian_inverse_grading_profile, aeolian_grain_rounding, aeolian_surface_impacts, aeolian_cementation, and apply_sedimentary_overlays) has accurate code anchor entries using fully qualified names like analog_image_generator.geologic_generators.aeolian_cross_bedding_masks. Update the corresponding notebook markdown anchors in the appropriate aeolian notebook under notebooks/ (e.g., notebooks/aeolian.ipynb) following the anchor-<env>-<principle> convention and ensure PRD references in .taskmaster/docs/prd.txt or related PRDs reflect the new controls and parameters.
+
+## 10. Add tests/test_aeolian_overlays.py to validate overlay behaviors [pending]
+### Dependencies: 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8
+### Description: Create pytest coverage for aeolian sedimentary overlays, including cross-bed dips, grading flips, rounding bands, impact sensitivity, and cementation tags.
+### Details:
+Add a new test module tests/test_aeolian_overlays.py that constructs deterministic AeolianParams and minimal barchan/transverse masks (or uses existing generators) to exercise the overlay helpers and apply_sedimentary_overlays. Include tests that (a) ensure at least one cross-bed set has dip >20° for standard params, (b) verify grading metadata and profiles flip sign when the invert_gradation toggle is changed, (c) check that grain rounding indices fall within the expected band for default q and increase with transport distance, (d) confirm impact and erosional event counts grow with higher defect_rate or similar controls, and (e) assert that cementation masks and metadata carry the correct cement type tags and palette-based tint information.
+

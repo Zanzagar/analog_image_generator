@@ -1,0 +1,43 @@
+# Task ID: 7
+# Title: Add Phase 2 + estuarine-specific QC metrics and acceptance flags
+# Status: pending
+# Dependencies: 6
+# Priority: medium
+# Description: Augment `compute_metrics` (or helper routines) with entropy, D/SFI, PSD anisotropy, topology per facies, and the estuarine-specific acceptance checks defined in the PRD.
+# Details:
+- Implement PSD-based anisotropy (aspect ratio and orientation θ) via 2D FFT of the bar/channel masks; ensure δ→0 cases yield aspect 1.3–1.8 and δ→1 exceed 2.0, recording deviations as QC flags.
+- Compute Shannon entropy H, D/SFI, and per-facies topology stats (connected-component counts, Euler number) leveraging `scipy.ndimage` labelers.
+- Add specialized metrics: ebb/flood orientation separation (difference between tide helper peaks), mouth-bar aspect ratio distribution (should fall within target ranges), shoreline curvature std dev, interlayer thickness histograms compared with required proportions, and LU_T / LU_F thickness + porosity proxies (derive using mask thickness fields + parameterized thickness distributions respecting Jiwei et al. 2025 values).
+- Emit QC booleans and messages (e.g., `qc_psd_aspect_pass`, `qc_mouth_bar_ratio_pass`, `qc_interlayer_distribution_pass`) into the metrics dict so reporting can highlight rerun requirements.
+- Pseudocode:
+```
+metrics["ebb_flood_delta_theta"] = abs(theta_ebb - theta_flood)
+metrics["qc_ebb_flood"] = metrics["ebb_flood_delta_theta"] >= 25
+...
+```
+- Ensure calculations reuse metadata captured in Tasks 2–4 to avoid recomputation.
+
+# Test Strategy:
+- Synthetic tests constructing known masks (e.g., ellipses with specified aspect ratios) verifying QC flags toggle at the documented thresholds.
+- Add randomized property-based tests to ensure mouth-bar histograms remain within expected bounds for δ extremes.
+- Write regression tests comparing computed PSD aspect vs dominance slider for δ in {0, 0.5, 1} to guarantee monotonic behavior.
+
+# Subtasks:
+## 1. Implement Phase 2 estuarine metric calculations in compute_metrics [pending]
+### Dependencies: None
+### Description: Extend the stats pipeline to compute Phase 2 metrics (entropy, D/SFI, PSD anisotropy, and per-facies topology) for estuarine environments within compute_metrics or dedicated helpers.
+### Details:
+Augment analog_image_generator.stats.compute_metrics (or a dedicated helper module) to compute Shannon entropy H, D/SFI, PSD-based anisotropy (aspect ratio and orientation θ) via 2D FFT on bar/channel masks, and per-facies topology statistics such as connected-component counts and Euler number using scipy.ndimage labelers. Ensure the implementation accepts an estuarine env branch, reuses Phase 1 FFT/variogram utilities and any metadata recorded by Tasks 2–4 to avoid recomputation, and returns all new scalar metrics in the metrics dict with clear, stable keys suitable for downstream reporting.
+
+## 2. Add estuarine-specific QC metrics and acceptance flags [pending]
+### Dependencies: None
+### Description: Implement the estuarine-specific QC and acceptance checks, wiring their thresholds to the PRD and exposing them as boolean flags and messages in the metrics dict.
+### Details:
+Using the Phase 2 metrics and existing estuarine metadata, implement estuarine-specific QC checks including ebb/flood orientation separation (Δθ between tide helper peaks), mouth-bar aspect ratio distribution, shoreline curvature standard deviation, interlayer thickness histograms, and LU_T / LU_F thickness and porosity proxy metrics derived from mask thickness fields and Jiwei et al. 2025 thickness distributions. For each check, encode PRD-specified thresholds and write boolean flags (e.g., qc_psd_aspect_pass, qc_mouth_bar_ratio_pass, qc_interlayer_distribution_pass, qc_ebb_flood) plus short human-readable messages into the metrics dict so downstream reporting can highlight rerun requirements.
+
+## 3. Integrate Phase 2 metrics, QC outputs, and metadata reuse into estuarine workflow [pending]
+### Dependencies: None
+### Description: Wire the new Phase 2 metrics and QC flags into the estuarine stats workflow, ensuring consistent dict schema, metadata reuse, and minimal recomputation.
+### Details:
+Refactor compute_metrics and any estuarine stats helpers so Phase 2 metrics and QC flags are computed only once per run, consuming metadata and intermediate arrays produced by Tasks 2–4 (e.g., orientation histograms, shoreline traces, thickness fields) instead of recomputing masks or FFTs. Normalize metric and flag naming, update the metrics dict schema to include both raw metrics and qc_* booleans plus explanatory messages, and ensure the estuarine branch remains compatible with Phase 1 outputs so reporting and Task 9 documentation can treat Phase 1 and Phase 2 metrics uniformly.
+

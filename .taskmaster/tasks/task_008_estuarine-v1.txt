@@ -1,0 +1,48 @@
+# Task ID: 8
+# Title: Extend reporting (CSV + PDFs + master summary) for estuarine metrics
+# Status: pending
+# Dependencies: 7
+# Priority: medium
+# Description: Upgrade `analog_image_generator.reporting.build_reports` to emit CSV rows, per-style PDFs, and the master PDF/legend bundle that include the new estuarine-specific metrics and QC flags.
+# Details:
+- Expand CSV schema to cover Phase 1/2 metrics plus estuarine-specific values (orientation split, mouth-bar ratios, shoreline curvature std, PSD aspect, interlayer stats) with stable column ordering; document schema in README/docs.
+- Generate per-style PDF reports (tide, wave, mixed) using ReportLab: include slider inputs, representative thumbnails from sequential frames, QC flag badges, and legends referencing `docs/PALETTES.md`.
+- Assemble a master PDF that summarises all runs per environment with tables and aggregated charts (e.g., histogram overlays) plus a cover page referencing sources.
+- Ensure PDF generation respects WSL pathing and writes to `dist/reports/<timestamp>`; support CLI invocation by returning output paths.
+- Update `scripts/smoke_test.py` to call `build_reports` with sample metrics_rows produced by generator/stats to verify the pipeline end-to-end.
+- Pseudocode:
+```
+def build_reports(metrics_rows, output_dir):
+    csv_path = output_dir / "estuarine_metrics.csv"
+    pd.DataFrame(metrics_rows).to_csv(...)
+    for style, rows in groupby_tag(metrics_rows):
+        pdf = ReportLabCanvas(...)
+        ... draw legend, thumbnails, QC table ...
+    merge_pdfs(per_style, master_path)
+```
+
+
+# Test Strategy:
+- Unit tests verifying CSV headers match the documented schema and QC flags serialize as booleans/strings.
+- Regression tests that generate sample PDFs then inspect metadata (page count, presence of legend text) using PyPDF2; compare file hashes to golden fixtures when feasible.
+- Smoke test ensuring `build_reports` handles empty metrics list gracefully and raises informative errors when thumbnails missing.
+
+# Subtasks:
+## 1. Extend CSV schema and row construction for estuarine metrics [pending]
+### Dependencies: None
+### Description: Design and implement an explicit CSV schema in `analog_image_generator.reporting.build_reports` that includes Phase 1/2 metrics plus all estuarine-specific fields, then ensure `metrics_rows` are serialized into stable, well-typed columns and documented in the reporting docs.
+### Details:
+Inspect the structure of `metrics_rows` produced for the estuarine environment (including Phase 1/2 metrics and estuarine-specific values such as orientation split, mouth-bar ratios, shoreline curvature statistics, PSD aspect, interlayer stats, and QC flags). Define an ordered list of CSV columns and any required type coercions so that `build_reports` can construct a `pandas.DataFrame` with a stable column order and clear semantics. Implement CSV writing to `dist/reports/<timestamp>/estuarine_metrics.csv`, ensuring paths are WSL-safe and directories are created as needed. Update README/docs to describe the schema, including column names, units (where applicable), and how QC flags are represented, keeping the schema stable for downstream consumers.
+
+## 2. Implement per-style estuarine PDF report generation (tide, wave, mixed) [pending]
+### Dependencies: None
+### Description: Group estuarine `metrics_rows` by style and generate per-style PDF reports that include slider inputs, representative thumbnails, QC flag badges, and legends consistent with `docs/PALETTES.md`.
+### Details:
+Within `analog_image_generator.reporting.build_reports`, group estuarine `metrics_rows` by style tag (e.g., tide, wave, mixed) and for each group create a ReportLab canvas to build a per-style PDF report. Implement layout sections for: high-level run metadata, slider input summaries, tables of key metrics (including estuarine-specific ones), and QC flag badges or icons derived from the metrics. Wire in representative thumbnails from sequential preview frames (paths provided by the generation pipeline), arranging them in a simple grid or strip. Add a legend section that pulls color and label information aligned with `docs/PALETTES.md`, so facies and masks are consistently described. Ensure PDFs are saved under `dist/reports/<timestamp>/style-<name>.pdf` with WSL-safe paths and collected for later merging.
+
+## 3. Assemble master estuarine summary PDF and integrate CLI/smoke test behavior [pending]
+### Dependencies: None
+### Description: Create a master estuarine summary PDF that aggregates per-style reports into a single document with a cover page, tables, and charts, ensure `build_reports` returns output paths for CLI use, and update `scripts/smoke_test.py` to exercise the full reporting pipeline on WSL.
+### Details:
+Implement logic in `analog_image_generator.reporting.build_reports` to collect all per-style estuarine PDFs and merge them into a master summary PDF, using either ReportLab or a PDF-merging utility. Add a cover page that names the estuarine environment, briefly describes metric sources, and references palettes and geologic rules. Include summary tables (e.g., one row per run with key metrics and QC flags) and, where feasible, simple aggregated charts such as histogram overlays or small multiples of key metrics. Ensure all report files are written under `dist/reports/<timestamp>` with deterministic filenames and that `build_reports` returns a structured object (e.g., dict) of CSV and PDF paths suitable for CLI or notebook invocation. Finally, update `scripts/smoke_test.py` to construct a representative estuarine `metrics_rows` sample, call `build_reports`, and assert that the CSV, per-style PDFs, and master PDF are created without error on WSL.
+

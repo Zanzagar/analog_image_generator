@@ -1,0 +1,45 @@
+# Task ID: 3
+# Title: Implement wave-dominated estuarine primitives & shoreline extraction
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Create wave-dominated helpers for shoreface-parallel bars, distributary mouth bars, and shoreline curvature derived from delta-front angle φ.
+# Details:
+- Add `wave_shoreface_bars(params, shape)` that generates parallel bars aligned with shoreline azimuth derived from φ, using band-pass filtered noise in the alongshore direction to keep wavelengths λ_b=20–150 px and mouth-bar aspect ratios 2.0–4.0.
+- Build `mouth_bar_field(channel_entries, params)` that seeds fans at channel termini with Gaussian envelopes whose major/minor axes satisfy the PRD ranges; mix in wave energy index to control taper.
+- Implement `extract_shoreline(gray_base) -> (polyline, curvature_stats)` using marching squares on shoreline mask plus smoothing; compute curvature std dev and ensure δ≈1 cases fall below 0.25 rad/pixel by adjusting smoothing strength.
+- Return masks for bars, shoreline, and metadata (curvature std, aspect ratios) for QC.
+- Pseudocode snippet:
+```
+def wave_shoreline(params, shape):
+    theta = np.deg2rad(params.delta_front_angle)
+    shoreline = build_base_curve(theta)
+    bars = stack_parallel_offset(shoreline, spacing=params.bar_wavelength)
+    return bars_mask, shoreline_poly
+```
+- Keep RNG deterministic via `params.seed` offsets so mixed-energy blending remains reproducible.
+
+# Test Strategy:
+- Unit tests verifying (a) mouth-bar aspect ratio distributions fall within 2.0–4.0 when wave energy index >0.7, (b) shoreline curvature std dev <0.25 for mixed-energy presets, (c) δ→1 scenarios produce PSD aspect ratios >2.0 when evaluated later (record metadata for Task 7).
+- Compare extracted shoreline polylines against analytic arcs to ensure curvature computation is accurate within ±0.02 rad/pixel.
+- Validate mask coverage percentages sum to expected area budgets (channels + bars + flats + shoreline edge).
+
+# Subtasks:
+## 1. Implement `wave_shoreface_bars(params, shape)` with shoreline-aligned bar masks [pending]
+### Dependencies: 3.1
+### Description: Create the core wave_shoreface_bars helper that builds shoreface-parallel bar masks aligned to the shoreline azimuth derived from the delta-front angle φ, enforcing wavelength and aspect ratio constraints.
+### Details:
+Implement `wave_shoreface_bars(params, shape)` under the estuarine generators module, computing shoreline azimuth from `params.delta_front_angle` and constructing a base shoreline curve (e.g., via splines) from which to offset multiple parallel bars. Use deterministic band-pass filtered noise in the alongshore direction (seeded via `params.seed` plus local offsets) to keep bar wavelengths λ_b strictly within 20–150 px. Ensure the generated bar geometries produce mouth-bar-relevant aspect ratios in the 2.0–4.0 range where appropriate, and return a boolean mask (or labeled mask) for wave-generated bars plus any intermediate fields required by downstream helpers (e.g., shoreline polyline or normal vectors).
+
+## 2. Implement `mouth_bar_field(channel_entries, params)` with Gaussian fans and QC metadata [pending]
+### Dependencies: 3.1
+### Description: Build the mouth_bar_field helper that seeds distributary mouth-bar fans at channel termini using Gaussian envelopes constrained by PRD aspect ratio ranges and controlled by a wave energy index.
+### Details:
+Implement `mouth_bar_field(channel_entries, params)` to iterate over channel entry points (termini) and place 2D Gaussian envelopes or similar kernels oriented seaward, with major and minor axes sampled or clamped to satisfy PRD-configured aspect ratio ranges (targeting 2.0–4.0 for wave-dominated mouth bars). Modulate fan taper and downstream extent using a wave energy index from `params` so higher wave energy yields more laterally smeared, tapered bars. Keep RNG deterministic via `params.seed` offsets per channel entry. Return a composite mouth-bar mask and a metadata structure capturing per-bar aspect ratios, positions, and any wave-energy-related parameters for later QC and reporting.
+
+## 3. Implement `extract_shoreline(gray_base)` and integrate wave shoreline pipeline with curvature QC [pending]
+### Dependencies: 3.1
+### Description: Implement shoreline extraction and curvature statistics from gray-scale estuarine outputs using marching squares and smoothing, and wire everything into a wave_shoreline-style helper that returns masks and QC metadata.
+### Details:
+Implement `extract_shoreline(gray_base) -> (polyline, curvature_stats)` that thresholds or segments `gray_base` to form a shoreline mask, runs marching squares to extract a polyline, and applies controlled smoothing (e.g., Gaussian or spline smoothing) while computing per-vertex curvature and curvature standard deviation. Adjust smoothing strength as a function of dominance δ (mixed-energy, δ≈1) so such presets produce curvature std dev < 0.25 rad/pixel, while preserving realistic roughness at other δ values. Then implement or finalize a `wave_shoreline(params, shape)` orchestration helper that uses the shoreline geometry together with `wave_shoreface_bars` and `mouth_bar_field` to produce coherent wave-dominated estuarine outputs, returning bar masks, shoreline masks/polylines, and metadata (curvature std, aspect ratios, and relevant parameters) for QC and downstream stats tasks.
+

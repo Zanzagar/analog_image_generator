@@ -1,0 +1,48 @@
+# Task ID: 2
+# Title: Implement tide-dominated estuarine primitives & masks
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Add tide-dominated generation helpers that synthesize ebb/flood channels, elongate tidal bars, and mudflat masks with the geometric constraints from the PRD.
+# Details:
+- Under `analog_image_generator.geologic_generators`, add functions like `tide_channel_network(params: EstuarineParams, shape: tuple[int, int]) -> NDArray` that create two forked centerlines rotated ±θ relative to shoreline to achieve bimodal peaks separated by ≥25°; use filtered noise + cubic splines and enforce channel sinuosity S within [1.0, 1.8].
+- Implement `tide_bars(channel_mask, params) -> NDArray` that dilates along-flow segments to create elongate tidal bars with length:width ratios 3–15× and λ_b spacing between 20–150 px; modulate amplitude using tidal prism.
+- Add `mudflat_mask(channel_mask, params)` that thresholds distance transforms + mud fraction m to carve intertidal flats.
+- Ensure each helper returns boolean masks plus summary stats (length/width per bar) for later QC metrics.
+- Pseudocode sketch:
+```
+def tide_channel_network(params, shape):
+    dirs = [+φ_shift, -φ_shift]
+    channels = []
+    for theta in dirs:
+        curve = spline_seed(seed=params.seed, sinuosity=params.channel_sinuosity)
+        curve = rotate(curve, theta)
+        channels.append(draw_tube(curve, width=base_width(params)))
+    chan_mask = union(channels)
+    return chan_mask, measure_orientations(channels)
+```
+- Use numpy/scipy interpolation and `scipy.ndimage.morphology` to dilate/distance operations; keep RNG seeded.
+
+# Test Strategy:
+- Write targeted tests (e.g., `tests/test_estuarine_tide.py`) that call the helper with fixed seeds and assert: (a) measured orientation histogram has two peaks with |Δθ| ≥ 25°, (b) computed sinuosity falls within the slider range, (c) bar length/width ratios stay within 3–15×, (d) mudflat mask area fraction matches mud fraction ±5%.
+- Add quick metric assertions that orientation stats captured in helper metadata feed into later QC calculations (serialized dict fields).
+
+# Subtasks:
+## 1. Implement `tide_channel_network` with bimodal orientations and controlled sinuosity [pending]
+### Dependencies: None
+### Description: Create the core tide-dominated channel network helper that generates two forked ebb/flood centerlines with required orientation separation and sinuosity constraints, returning a boolean mask plus orientation statistics.
+### Details:
+Add `tide_channel_network(params: EstuarineParams, shape: tuple[int, int]) -> tuple[NDArray, dict]` under `analog_image_generator.geologic_generators`. Use a seeded RNG to generate noisy control points, smooth them with cubic splines, and construct two centerlines rotated by ±φ_shift relative to the shoreline so that the measured orientation histogram shows two peaks separated by at least 25°. Enforce channel sinuosity S within [1.0, 1.8] by iterating on control point amplitude or step length until the path-length/straight-line ratio falls in range. Rasterize the splines into tubes using a width function `base_width(params)` and union them into a boolean `chan_mask`. Compute and return summary stats (e.g., per-branch mean orientation, sinuosity values, total channel length) alongside the mask, using NumPy and SciPy interpolation utilities and `scipy.ndimage` where needed.
+
+## 2. Implement `tide_bars` for elongate tidal bar masks and length/width statistics [pending]
+### Dependencies: 2.1
+### Description: Build the tidal bar helper that dilates along-flow channel segments into elongate bars with required aspect ratios and spacing, returning a bar mask and per-bar summary metrics.
+### Details:
+Implement `tide_bars(channel_mask: NDArray, params: EstuarineParams) -> tuple[NDArray, dict]` that operates on the tide channel network output. Use `scipy.ndimage` morphology and distance transforms along the local flow direction to dilate channel segments into elongate tidal bars with length:width ratios between 3× and 15× and bar spacing λ_b between 20 and 150 pixels, modulating bar thickness and continuity using a tidal prism–related parameter from `params`. Label individual bars (e.g., via connected-component analysis) and compute per-bar statistics such as length, width, aspect ratio, spacing, and orientation, returning a boolean `bar_mask` plus a structured stats dictionary suitable for later QC metrics and CSV export.
+
+## 3. Implement `mudflat_mask` and integrate tide helpers into a cohesive tide primitives API [pending]
+### Dependencies: 2.1, 2.2
+### Description: Create the mudflat mask helper using distance transforms and mud fraction thresholds, and standardize the return signatures and metadata for all tide-dominated primitives so they can be consumed cleanly by `generate_estuarine` and downstream metrics.
+### Details:
+Add `mudflat_mask(channel_mask: NDArray, params: EstuarineParams) -> tuple[NDArray, dict]` that uses `scipy.ndimage` distance transforms and a mud fraction parameter `m` to derive intertidal mudflat regions between channels and surrounding areas. Threshold the distance field and optionally combine with any shoreline or elevation cues from `params` to produce a boolean `mud_mask`, and compute basic stats such as total mudflat area fraction and typical width. Then, ensure all three tide helpers (`tide_channel_network`, `tide_bars`, `mudflat_mask`) share consistent signatures (boolean mask plus stats dict), live under `analog_image_generator.geologic_generators`, and are documented for later use by `generate_estuarine` and `stats.compute_metrics`. Update or add minimal module-level documentation strings describing the tide-dominated estuarine primitives API.
+

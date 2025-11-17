@@ -1,0 +1,82 @@
+# Task ID: 3
+# Title: Implement braided generator sequencing
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Create braided belt pipeline (threads, bars, chutes, floodplain masks) under `generate_fluvial` path for `env="braided"`.
+# Details:
+- Add `generate_braided(params, rng)` with helper functions `layout_threads(thread_count, width_px)`, `place_mid_channel_bars(bar_spacing_factor)`, `route_chutes(frequency)`.
+- Use width statistics from PRD table and enforce validation (3–9 threads, width 12–28 px, bar factor 3.5–5.5× width).
+- Compose grayscale layering: channels darker, bars medium, floodplain bright, ensure mask dictionary includes `channel`, `bar`, `chute`, `floodplain`.
+- Provide metadata for each thread (width, sinuous drift) for later reporting.
+- Add docstrings referencing GEOLOGIC_RULES.
+- Pseudo:
+```
+threads = layout_threads(params, rng)
+bars = np.zeros_like(grid)
+for idx, line in enumerate(threads):
+    bars |= dilate(line, bar_spacing)
+gray = normalize(channel_field*0.6 + bars*0.3 + floodplain_noise*0.1)
+```
+- Update `generate_fluvial` dispatcher to route to `generate_braided` when requested.
+
+# Test Strategy:
+- Add `tests/test_braided.py` verifying number of thread masks equals slider value and bar spacing computed correctly via measuring distance between centroids.
+- Randomized seeds should still yield deterministic outputs, assert via hash of `gray.tobytes()` for canonical parameters.
+- Smoke test ensures anisotropy ratio >1 for braided (per acceptance band) when running quick variogram stub (temporary check until full stats ready).
+
+# Subtasks:
+## 1. Define braided NDArray types and channel/mask conventions [pending]
+### Dependencies: None
+### Description: Standardize NDArray type aliases and mask naming for braided belts.
+### Details:
+In `src/analog_image_generator/geologic_generators.py`, import or define shared type aliases (e.g., `FloatField = np.ndarray`, `BoolMask = np.ndarray`) reused from Task 1 utilities where possible, and document braided-specific conventions. Clarify channel mask semantics (True = active channel pixel) and standardize mask keys and shapes for braided (`channel`, `bar`, `chute`, `floodplain`). Ensure all new braided helpers accept `(H, W)` integers and `rng: np.random.Generator`, return `np.ndarray` with `float32` or `bool` dtypes, and follow existing naming patterns so later generators and stacked-channel code can rely on consistent conventions.
+
+## 2. Implement braided_threads(H, W, thread_count, mean_width) with PRD validation [pending]
+### Dependencies: 3.1
+### Description: Create braided_threads layout function with thread count and width range checks.
+### Details:
+Add `braided_threads(H: int, W: int, thread_count: int, mean_width: float, rng)` to `geologic_generators.py` that generates multiple sinuous channel centerlines or binary thread masks across the belt. Enforce PRD constraints: 3–9 threads, mean width 12–28 px, raising a clear ValueError when violated. Use RNG-driven offsets and gentle lateral drift to distribute threads from bank to bank while avoiding excessive overlap, reusing interpolation and centerline utilities from Task 1/meandering where appropriate. Return both a stack of thread masks or centerlines and per-thread scalar widths needed later for bar spacing and metadata.
+
+## 3. Implement seed_bars and place_mid_channel_bars with spacing control [pending]
+### Dependencies: 3.2
+### Description: Add bar seeding and placement logic enforcing bar spacing 3.5–5.5× channel width.
+### Details:
+Introduce `seed_bars(threads, widths, bar_spacing_factor, rng)` and `place_mid_channel_bars(thread_masks, widths, H, W, rng)` (or a combined helper) in `geologic_generators.py` to generate mid-channel bar masks aligned with braided threads. Use the PRD bar spacing rule (3.5–5.5× the local channel width) to determine along-channel spacing; for each thread, march along its centerline and place bar patches (e.g., elliptical or lens-shaped dilations) where spacing between successive bar centroids falls within that factor range. Implement dilation using utilities from Task 1 (e.g., EDT or morphology helpers) and ensure bars remain inside channel corridors with limited overlap between adjacent threads.
+
+## 4. Implement add_chutes(...) to route cross-cutting chutes over bars [pending]
+### Dependencies: 3.2, 3.3
+### Description: Create chute-routing helper that uses RNG to place chutes crossing bars and threads.
+### Details:
+Add an `add_chutes(threads, bar_mask, chute_frequency, rng, H, W)` helper in `geologic_generators.py` that generates narrow, higher-sinuosity or more linear chute masks that cross-cut existing bars and sometimes connect adjacent threads. Use RNG-driven selection of entry and exit points along thread margins, then route chutes using a low-cost path or jittered spline that intersects bar-rich zones. Ensure chute width is narrower than main channels and that chute density roughly scales with `chute_frequency` while preserving connectivity. Return a boolean chute mask aligned with the main grid and keep implementation compatible with stacked-channel and metrics code (e.g., clean, non-NaN arrays).
+
+## 5. Compose braided grayscale field with correct intensity ordering [pending]
+### Dependencies: 3.2, 3.3, 3.4
+### Description: Combine channel, bar, chute, and floodplain fields into a normalized grayscale image.
+### Details:
+Implement a `compose_braided_gray(channel_mask, bar_mask, chute_mask, H, W, rng)` helper in `geologic_generators.py` that constructs a float32 grayscale field with channels darkest, bars medium, and floodplain brightest, consistent with PALETTES facies ordering. Follow the pseudo-code sketch by building base fields (e.g., channel base intensity ~0.3–0.4, bar ~0.5–0.6, chute slightly darker or similar to channels, floodplain noise brightening toward ~0.8–0.9), then combine via weighted sum and normalize to [0, 1] using Task 1 utilities. Ensure floodplain fills all non-channel/bar/chute pixels and add subtle noise or texture to avoid flat areas, keeping dynamic range suitable for later RGB conversion.
+
+## 6. Construct braided masks dict and per-thread metadata structure [pending]
+### Dependencies: 3.2, 3.3, 3.4, 3.5
+### Description: Build masks dictionary and metadata for braided threads, including width and sinuous drift.
+### Details:
+Within `geologic_generators.py`, implement a helper (e.g., `build_braided_masks_and_metadata(...)`) that assembles the final braided mask dictionary with keys `{"channel", "bar", "chute", "floodplain"}` and constructs per-thread metadata records. For each thread, record properties such as realized width (in pixels), estimated sinuosity or lateral drift metric, and any bar/chute counts associated with that thread. Ensure `floodplain` is defined as the complement of union(channel, bar, chute) and that all masks share identical shapes and boolean dtypes. Design metadata as a list of dicts or a small dataclass/typed structure that downstream stats/reporting code can serialize to CSV and PDF later.
+
+## 7. Implement generate_braided(params, rng) and hook into generate_fluvial dispatcher [pending]
+### Dependencies: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+### Description: Create generate_braided orchestrator and wire it into generate_fluvial for env='braided'.
+### Details:
+Add `generate_braided(params, rng)` to `geologic_generators.py` that orchestrates braided_threads, bar placement, chute routing, grayscale composition, and mask/metadata assembly. The function should parse required parameters from `params` (H, W, thread_count, mean_width, bar_spacing_factor, chute_frequency, etc.), validate ranges against PRD tables, and pass a seeded `np.random.Generator` from Task 1 utilities. Return `(gray, masks_dict, metadata)` or `(gray, masks_dict)` per project convention. Update `generate_fluvial(params, rng)` dispatcher to call `generate_braided` when `params["env"] == "braided"`, and add or update docstrings referencing braided GEOLOGIC_RULES anchors to ensure traceability. Maintain compatibility with existing meandering/anastomosing paths and stacked-channel plans.
+
+## 8. Write tests/test_braided.py for geometry, spacing, and RNG determinism [pending]
+### Dependencies: 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
+### Description: Create braided-specific test module covering thread counts, bar spacing, anisotropy, and determinism.
+### Details:
+Add `tests/test_braided.py` that exercises the full braided pipeline through `generate_braided` or `generate_fluvial(env='braided')`. Include tests for (a) thread count: number of distinct channel components or thread masks equals requested thread_count; (b) bar spacing: centroid-based spacing statistics fall within the 3.5–5.5× width window; (c) RNG determinism: with a fixed seed, hash `gray.tobytes()` and assert stable output; and (d) basic anisotropy: compute simple directional variance or covariance metrics showing elongated features aligned with belt axis. Use relatively small grids to keep runtime low and rely on utilities from Task 1 tests for hashing or fixture creation where helpful.
+
+## 9. Update GEOLOGIC_RULES.md and braided notebook anchors [pending]
+### Dependencies: 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
+### Description: Align braided function anchors and notebook markdown cells with implemented code.
+### Details:
+Edit `docs/GEOLOGIC_RULES.md` to add or update braided-related entries for `analog_image_generator.geologic_generators.braided_threads`, `seed_bars`, `add_chutes`, `compose_braided_gray`, and `generate_braided`, documenting key geologic principles (thread counts, width ranges, bar spacing factors, chute behavior). Then update the braided environment notebook under `notebooks/` (e.g., `notebooks/braided.ipynb`) to include markdown cells with anchors following the `anchor-braided-<principle>` convention, referencing both the fully qualified function names and the rules text. Ensure meandering and braided anchors co-exist without naming collisions and that any refactored function names remain synchronized between code, rules, and notebook anchors.
+

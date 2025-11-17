@@ -1,0 +1,75 @@
+# Task ID: 4
+# Title: Implement anastomosing generator sequencing
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Build stable/narrow channel generator with levees, wetlands, and crevasse fans, honoring slider table ranges.
+# Details:
+- Add `generate_anastomosing(params, rng)` with helpers `place_branches(branch_count)`, `grow_marsh_floodbasins(marsh_frac)`, `emit_crevasse_fans(fan_length_px)`.
+- Parameter validation for branch count [2,6], marsh fraction [0.2,0.7], fan length [15,60].
+- Masks: `branch_channel`, `levee`, `marsh`, `fan`, `overbank` plus `wetland_water` overlay for entropy variation.
+- Gray image uses layered approach: marsh low contrast, levees moderate, fans radial gradient.
+- Document geologic rules + anchors referencing `docs/GEOLOGIC_RULES.md` new section.
+- Pseudo snippet: `fans = draw_radial_cones(breach_points, fan_length_px, rng.normal(0.6,0.05))`.
+- Hook into `generate_fluvial` dispatcher and return env metadata (branch stability index).
+
+# Test Strategy:
+- `tests/test_anastomosing.py` ensures marsh fraction in mask approximate slider ±5% tolerance and fan lengths within bounds (measure major axis with `scipy.ndimage.measurements`).
+- Check total channel width remains narrower than meandering by asserting mask pixel fraction < 0.25 of grid.
+- Update smoke test to call `generate_anastomosing` verifying deterministic seeds produce same bounding boxes.
+
+# Subtasks:
+## 1. Design and implement `anasto_paths(H, W, branch_count)` for narrow stable branches [pending]
+### Dependencies: None
+### Description: Create the core anastomosing branch layout function that generates multiple narrow, stable channel branches while validating the branch_count parameter range.
+### Details:
+In `src/analog_image_generator/geologic_generators.py`, add `anasto_paths(H, W, branch_count, rng)` implementing the GEOLOGIC_RULES anchor for anasto_paths. Enforce parameter validation for `branch_count` in [2, 6], raising a clear exception on invalid input. Use seeded RNG and simple geometric primitives (e.g., low-sinuosity splines or polylines) to generate multiple narrow branch centerlines that avoid excessive braiding and self-intersection, ensuring overall channel pixel fraction stays below ~0.25 of the grid when later rasterized. Return a branch centerline representation and a preliminary boolean `branch_channel` mask suitable for downstream levee and marsh computations.
+
+## 2. Implement `add_levees_narrow` to generate levees around anastomosing channels [pending]
+### Dependencies: 4.1
+### Description: Build a levee-generation helper that constructs realistic narrow levees flanking the anastomosing channel branches.
+### Details:
+In `geologic_generators.py`, implement `add_levees_narrow(branch_channel, rng, width_px, height_scale)` following the GEOLOGIC_RULES anchor `add_levees_narrow`. Use distance from the `branch_channel` mask (via utils distance transform) to create two-sided levee belts with limited width, tuning thickness and shape to morphologic expectations for narrow, stable anastomosing channels. Output a `levee` boolean mask and any auxiliary levee elevation field needed later for grayscale composition, ensuring parameters are plumbed through from the main `generate_anastomosing` configuration without hard-coded magic numbers.
+
+## 3. Implement `make_marsh(chan, base, quantile)` using distance/base quantiles [pending]
+### Dependencies: 4.1
+### Description: Create the marsh delineation helper that uses distance and base-surface quantiles to identify wetlands and floodbasin areas around channels.
+### Details:
+In `geologic_generators.py`, add `make_marsh(chan, base, quantile, rng=None)` under the GEOLOGIC_RULES anchor `make_marsh`. Use utilities from `analog_image_generator.utils` (e.g., EDT helpers) to compute distances from channels and combine them with a low-relief base surface to derive a scalar field. Apply quantile-based thresholds, controlled by a marsh fraction parameter mapped from slider ranges [0.2, 0.7], to construct a `marsh` boolean mask and a complementary `overbank` mask. Ensure the function supports tuning via a `quantile` or marsh_frac parameter, and returns shapes and dtypes consistent with other fluvial environments for mask composition and grayscale layering.
+
+## 4. Implement `seed_fans(...)` to draw radial crevasse fans with controllable length [pending]
+### Dependencies: 4.1
+### Description: Create the crevasse fan generator that produces radial fan masks and associated intensity fields with fan_length_px and variability controls.
+### Details:
+In `geologic_generators.py`, implement `seed_fans(breach_points, fan_length_px, rng, intensity_mu=0.6, intensity_sigma=0.05)` honoring the GEOLOGIC_RULES anchor `seed_fans`. Use a radial-cone drawing approach similar to the pseudo snippet `fans = draw_radial_cones(breach_points, fan_length_px, rng.normal(0.6, 0.05))`, generating a `fan` boolean mask and a corresponding radial gradient field for grayscale intensity. Enforce parameter validation for `fan_length_px` in [15, 60], and provide a clear way to control variability (e.g., angular spread and decay rate) while keeping fans geologically plausible and aligned with anastomosing channel breaches or levee breaks.
+
+## 5. Compose anastomosing environment masks with palette-aligned semantics [pending]
+### Dependencies: 4.1, 4.2, 4.3, 4.4
+### Description: Combine channel, levee, marsh, fan, overbank, and wetland_water overlays into a coherent mask dictionary that matches palette and schema conventions.
+### Details:
+Implement a `compose_anasto_masks(branch_channel, levee, marsh, fan, base_overbank, rng)` helper (or equivalent) in `geologic_generators.py` under the GEOLOGIC_RULES anchor `compose_anasto`. Define and populate the mask dictionary keys `{"branch_channel","levee","marsh","fan","overbank","wetland_water"}` with clear, non-overlapping semantics where appropriate, deriving `wetland_water` as a secondary overlay inside marsh or low-lying zones to drive entropy variation. Ensure mask dtypes are boolean, shapes are consistent, and that semantics align with `docs/PALETTES.md` entries for the anastomosing environment. Where overlaps are unavoidable (e.g., fan over overbank), encode precedence and document rules in code docstrings for traceability.
+
+## 6. Compose grayscale anastomosing fields with layered contrasts [pending]
+### Dependencies: 4.2, 4.3, 4.4, 4.5
+### Description: Build the grayscale image composition step that layers marsh, levees, fans, and background according to specified contrast rules.
+### Details:
+Add a grayscale composition helper in `geologic_generators.py` (e.g., `compose_anasto_gray(masks, fields, rng)`) that constructs a float32 grayscale field from the anastomosing masks and any auxiliary elevation or fan gradient fields. Implement the visual rules: marsh regions appear low contrast and relatively muted, levees have moderate contrast and subtle texturing, and fans show clear radial gradients radiating from breach points over the floodplain. Ensure that the final `gray` array is normalized to an expected range (e.g., [0,1]) and consistent with other fluvial environments to simplify downstream UX, stats, and reporting pipelines.
+
+## 7. Implement `generate_anastomosing(params, rng)` and integrate into `generate_fluvial` [pending]
+### Dependencies: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6
+### Description: Create the top-level anastomosing generator orchestrator and wire it into the shared fluvial dispatcher for env="anastomosing".
+### Details:
+In `geologic_generators.py`, implement `generate_anastomosing(params, rng)` that validates `branch_count`, `marsh_frac`, and `fan_length_px` against their slider ranges, then calls `anasto_paths`, `add_levees_narrow`, `make_marsh`, `seed_fans`, and `compose_anasto_masks` followed by the grayscale composer to produce `(gray, masks_dict, metadata)`. Add env-specific metadata such as a branch stability index and summary mask fractions. Update `generate_fluvial` to handle `env="anastomosing"`, routing parameters and RNG correctly while preserving backward compatibility with existing environments. Ensure function and docstrings reference the appropriate GEOLOGIC_RULES anchors and that outputs match the `(gray, masks_dict)` contract used elsewhere.
+
+## 8. Add `tests/test_anastomosing.py` covering masks, fractions, and determinism [pending]
+### Dependencies: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7
+### Description: Introduce a dedicated test module that validates geometry, area fractions, parameter bounds, and seeded reproducibility for the anastomosing generator.
+### Details:
+Create `tests/test_anastomosing.py` that centralizes unit and integration tests for the new anastomosing pipeline. Implement tests for parameter validation (branch_count, marsh_frac, fan_length_px), mask schema and coverage (including channel fraction < 0.25 of grid and marsh fraction approximating slider values within ±5%), fan length statistics via `scipy.ndimage.measurements`, and grayscale field properties. Include determinism checks by seeding RNG via `analog_image_generator.utils.seeded_rng` and asserting stable hashes of key outputs. Mirror structure and style from existing meandering and braided test modules for consistency.
+
+## 9. Update GEOLOGIC_RULES.md and notebooks with anastomosing anchors and documentation [pending]
+### Dependencies: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8
+### Description: Refresh documentation to capture geologic rules, parameters, and notebook anchors for the anastomosing generator and its helpers.
+### Details:
+Edit `docs/GEOLOGIC_RULES.md` to add a dedicated anastomosing section documenting `analog_image_generator.geologic_generators.anasto_paths`, `add_levees_narrow`, `make_marsh`, `seed_fans`, `compose_anasto`, and `generate_anastomosing`, including parameter ranges and geologic rationale. Update or create the appropriate notebook (e.g., `notebooks/anastomosing.ipynb`) with markdown cells containing anchors in the form `anchor-anastomosing-<principle>` that reference both code paths and rules, ensuring every implemented function has entries in both the code anchor column and the notebook anchor column. Verify that documentation stays in sync with the final implementation and that anchors conform to project conventions.
+

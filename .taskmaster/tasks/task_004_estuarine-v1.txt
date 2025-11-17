@@ -1,0 +1,47 @@
+# Task ID: 4
+# Title: Blend regimes inside `generate_estuarine` and emit sequential masks
+# Status: pending
+# Dependencies: 1, 2, 3
+# Priority: medium
+# Description: Implement the public `generate_estuarine` orchestrator that mixes tide/wave primitives via the dominance slider δ, produces grayscale + mask dict, and records sequential preview stages.
+# Details:
+- Inside `analog_image_generator.geologic_generators.generate_estuarine`, call the tide and wave helpers with shared params, then linearly or sigmoid-blend masks using δ (0 = fully tide, 1 = fully wave) while ensuring mud fraction scaling and shoreline curvature targets.
+- Compose intermediate rasters: base topography, combined channels, bars, flats, shoreline, grayscale, and facies RGB (using `docs/PALETTES.md`), storing them in an ordered list for previews.
+- Normalize outputs to `Array` alias (later NDArray) and ensure `masks_dict` exposes keys `channel`, `bar`, `mudflat`, `shoreline`, `dominance_tide`, `dominance_wave`, plus stats bundles for downstream metrics.
+- Include quick metrics (length/width histograms, orientation peaks) in a sidecar metadata object returned with masks to avoid recomputation.
+- Pseudocode skeleton:
+```
+def generate_estuarine(params_dict):
+    params = clamp_estuarine_params(params_dict)
+    tide_masks = tide_channel_network(...)
+    wave_masks = wave_shoreface_bars(...)
+    blended = blend_masks(tide_masks, wave_masks, params.dominance)
+    sequential = [base_gray, blended['channel'], ..., facies_rgb]
+    return final_gray, {**blended, "sequence": sequential}
+```
+- Update `__all__` / module exports if needed so notebooks can import the new helpers.
+
+# Test Strategy:
+- Integration test creating canonical parameter sets (δ=0, 0.5, 1) and asserting returned tuple contains a grayscale array with expected shape plus mask keys; verify sequential list contains the prescribed stages in order.
+- Snapshot-test histograms/metrics stored in metadata to detect regressions (pytest + numpy testing utilities).
+- Run smoke test via `scripts/smoke_test.py` to ensure generator executes within budgeted time (<1s for 512×512) and respects RNG reproducibility by comparing checksums for identical seeds.
+
+# Subtasks:
+## 1. Implement tidal–wave mask blending logic in `generate_estuarine` [pending]
+### Dependencies: 4.1, 4.2, 4.3
+### Description: Wire `generate_estuarine` to call the tide and wave helpers with shared clamped parameters and blend their mask stacks using the dominance slider δ so that the regime mix transitions smoothly from fully tide-dominated (δ=0) to fully wave-dominated (δ=1).
+### Details:
+Inside `analog_image_generator.geologic_generators.generate_estuarine`, first obtain a validated `EstuarineParams` instance via the existing clamping routine, then call the tide and wave generator helpers to produce comparable mask dictionaries (e.g., `channel`, `bar`, `mudflat`, `shoreline`). Implement a blending pathway (linear or sigmoid curve) that combines each corresponding mask using δ and optionally a non-linear response curve for shoreline curvature targeting, while preserving total mud fraction and avoiding artifacts such as double-counting channels. Ensure the blended outputs are normalized to the shared `Array` alias type and add derived masks `dominance_tide` and `dominance_wave` that explicitly encode the local or global contribution of each regime for downstream metrics.
+
+## 2. Compose ordered sequential preview rasters from blended components [pending]
+### Dependencies: 4.1, 4.2, 4.3
+### Description: Construct an explicit, ordered sequence of intermediate rasters from the blended estuarine components for use in UI previews and debugging, ensuring each stage is consistently shaped and normalized.
+### Details:
+After blending the tide and wave masks, assemble an ordered Python list (e.g., `sequence`) that captures the key intermediate rasters in the estuarine workflow: base topography, combined channel mask visualization, bar masks, mudflat/flat regions, shoreline raster, final grayscale analog, and optional facies RGB image using palettes from `docs/PALETTES.md`. Normalize all sequence elements to the `Array` alias, enforce consistent spatial dimensions and value ranges, and adopt a stable ordering contract that downstream consumers (UI sliders, notebooks) can rely on. Store this list under a dedicated key such as `"sequence"` within the returned mask dictionary so it can be serialized or inspected without additional recomputation.
+
+## 3. Finalize `generate_estuarine` return signature, metadata sidecar, and exports [pending]
+### Dependencies: 4.1, 4.2, 4.3
+### Description: Polish the `generate_estuarine` API so it returns grayscale output plus a rich mask dictionary with quick metrics metadata and is correctly exported for notebook and stats integration.
+### Details:
+Ensure `generate_estuarine` returns a tuple `(final_gray: Array, masks_dict: dict)` where `masks_dict` includes the blended structural masks (`channel`, `bar`, `mudflat`, `shoreline`, `dominance_tide`, `dominance_wave`) and the sequential preview list under `"sequence"`. Attach a lightweight metadata sidecar (either embedded under a `"metadata"` key in `masks_dict` or as a closely associated object) that contains quick metrics such as basic length/width histograms and orientation peaks to support later calls into `stats.compute_metrics` without redundant work. Update module-level exports (`__all__` or equivalent) so that `analog_image_generator.geologic_generators.generate_estuarine` is importable from notebooks and other packages, and align any docstrings or type hints with the estuarine schema and Task Master task expectations.
+

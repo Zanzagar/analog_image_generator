@@ -1,0 +1,47 @@
+# Task ID: 5
+# Title: Wire interactive sliders & preview pipeline for estuarine v20a
+# Status: pending
+# Dependencies: 1, 4
+# Priority: medium
+# Description: Implement the interactive layer so estuarine sliders use the shared metadata and preview sequences update in real time with quick metrics.
+# Details:
+- Extend `analog_image_generator.interactive.build_sliders` to return slider descriptors for `env="estuarine"`, building UI metadata (label, range, default, tooltip) directly from `PARAM_METADATA` to prevent drift; include interlayer type dropdown and RNG seed control.
+- Implement `preview_sequence(env, params, seeds)` to repeatedly call `generate_estuarine`, capturing the sequential frames plus quick metrics (β_iso, anisotropy ratio) and wiring them into whichever widget stack (ipywidgets or CLI) consumes them.
+- Provide hooks for quick metrics panel updates by computing a lightweight subset of `stats.compute_metrics` (Phase 1 fields) synchronously and caching them with the preview.
+- Ensure slider callbacks throttle updates (e.g., via debouncing) so adjusting φ or δ doesn’t block UI.
+- Pseudocode snippet:
+```
+def preview_sequence("estuarine", params, seeds):
+    seq = []
+    for seed in seeds:
+        gray, masks = generate_estuarine({**params, "seed": seed})
+        quick = compute_metrics(gray, masks, env="estuarine", fields=["beta_iso", ...])
+        seq.append({"seed": seed, "frames": masks["sequence"], "metrics": quick})
+    return seq
+```
+- Document slider order and stage descriptions for notebooks/demo scripts.
+
+# Test Strategy:
+- Widget-level unit tests (can use ipywidgets `interaction` stubs) verifying slider config structure and that callbacks feed sanitized params into the generator.
+- Functional test running `preview_sequence("estuarine", default_params, seeds=[42])` asserts the sequential frames list matches the expected stage order and quick metrics dictionary contains beta values.
+- Manual smoke test in notebook (recorded in QA checklist) verifying slider adjustments propagate to preview within <150 ms and quick metrics refresh accordingly.
+
+# Subtasks:
+## 1. Extend estuarine slider metadata in `build_sliders` [pending]
+### Dependencies: None
+### Description: Add support in the interactive layer so `analog_image_generator.interactive.build_sliders` returns a complete set of slider and control descriptors when `env="estuarine"` is requested.
+### Details:
+Introduce an `env == "estuarine"` branch (or equivalent registry entry) inside `analog_image_generator.interactive.build_sliders` that constructs slider descriptor objects directly from `PARAM_METADATA` for all estuarine parameters, including label, range, default value, and tooltip text to prevent drift from the central metadata. Ensure this descriptor schema matches the existing pattern used for other environments so downstream widget stacks (ipywidgets and CLI) can consume them without changes. Add controls for an interlayer type dropdown (e.g., tide-, wave-, or mixed-dominant presets) and an RNG seed control, wiring their metadata from the same source. Validate that the resulting list/dict of descriptors is deterministic and ordered in a way that will later be documented for notebooks and demo scripts.
+
+## 2. Implement `preview_sequence` for estuarine with quick metrics [pending]
+### Dependencies: None
+### Description: Create the `preview_sequence(env, params, seeds)` function that drives `generate_estuarine`, captures sequential frames, and computes lightweight quick metrics for use in interactive previews.
+### Details:
+Implement `preview_sequence(env, params, seeds)` (or extend an existing variant) so that when `env == "estuarine"` it iterates over the provided `seeds`, merging the base `params` with each `seed` and calling `generate_estuarine` to obtain `(gray, masks_dict)`. From `masks_dict`, extract the sequential preview stack (e.g., `masks_dict["sequence"]`) and build a list of per-seed records shaped like `{ "seed": seed, "frames": frames_sequence, "metrics": quick_metrics }`. For each seed, compute a lightweight subset of `stats.compute_metrics` (Phase 1 fields) such as β_iso and anisotropy ratio by calling `compute_metrics(gray, masks_dict, env="estuarine", fields=[...])`, and store only those quick metrics with the sequence to keep the function responsive. Design the return structure so that both ipywidgets-based notebooks and CLI preview commands can consume it without additional adaptation.
+
+## 3. Wire estuarine sliders, debounced callbacks, and quick metrics preview [pending]
+### Dependencies: None
+### Description: Connect estuarine slider changes to `preview_sequence` with debounced callbacks and expose the results to both the image preview and the quick metrics panel, ensuring UI responsiveness.
+### Details:
+In the interactive layer, define the callback wiring that binds estuarine slider and control changes (including δ, φ, interlayer type, and RNG seed) to `preview_sequence("estuarine", params, seeds)` for both ipywidgets notebooks and any CLI-based preview commands. Implement a throttling or debouncing mechanism so rapid slider movement (especially for δ and φ) batches updates and avoids blocking the UI; for ipywidgets this may involve timers or `observe` handlers that only trigger after a short idle interval. Ensure that each callback assembles sanitized parameter dictionaries from slider values, calls `preview_sequence`, and then updates the displayed preview frames and a small quick-metrics panel showing β_iso, anisotropy ratio, and any other Phase 1 metrics included in the sequence payload. Finally, document the slider order, control grouping, and stage descriptions in a place that notebooks and demo scripts can reference for consistent layout.
+

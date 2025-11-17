@@ -12,6 +12,9 @@ node_modules/
 # Environment variables
 .env
 
+# Build artifacts
+dist/
+
 # Editor directories and files
 .idea
 .vscode
@@ -27,3 +30,7 @@ node_modules/
 # Task Master outputs and reports
 .taskmaster/reports/
 outputs/
+
+# Local tooling caches
+.pre-commit-cache/
+.venv/

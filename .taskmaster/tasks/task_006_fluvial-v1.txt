@@ -1,0 +1,88 @@
+# Task ID: 6
+# Title: Implement stacked channel package builder
+# Status: pending
+# Dependencies: 2, 3, 4, 5
+# Priority: medium
+# Description: Create `stacked_channels.py` that composes multi-package stratigraphy with relief controls and boundary masks for stats/reporting.
+# Details:
+- Add module with functions `sequence_packages(package_specs, base_grid_shape, rng)` and `cut_erosional_surface(previous_stack, relief_px, style)`.
+- Packages track metadata: style (meander/braided/anasto), thickness_px, erosion_depth, boundary masks per package.
+- Provide API `build_stacked_fluvial(params)` used by `generate_fluvial` when `params["mode"] == "stacked"` to assemble outputs from Tasks 2–5.
+- Manage toggles between single belt and stacked workflow without duplicating generator logic: pass per-package params to generator functions and accumulate masks (with package IDs for stats/reporting).
+- Pseudo loop:
+```
+stack = np.zeros((n_packages, H, W), dtype=float32)
+for idx, spec in enumerate(package_specs):
+    gray, masks = GENERATOR_MAP[spec.style](spec.params, rng)
+    stack[idx] = apply_relief(gray, current_surface, spec.erosion)
+```
+- Export boundary masks: `upper_surface_mask`, `erosion_surface_mask`, `package_id_map`.
+- Update docs + notebook anchors describing stacked workflow and slider mapping.
+- Ensure metadata recorded for stats (erosional relief, package mix).
+
+# Test Strategy:
+- Create `tests/test_stacked_channels.py` verifying package count matches slider, erosion depth reduces stratigraphy thickness accordingly, and mask union stays within grid.
+- Add property test ensuring toggling between single vs stacked yields identical single-belt outputs when `package_count=1`.
+- Update smoke script to build 2-package stack and confirm boundary masks exist.
+
+# Subtasks:
+## 1. Design stacked channel package spec and metadata structures [pending]
+### Dependencies: None
+### Description: Define data structures to represent stacked channel package specifications and per-package metadata for fluvial styles.
+### Details:
+Introduce a clear data model in src/analog_image_generator/stacked_channels.py for package_specs and resulting metadata, likely using TypedDicts or dataclasses to capture fields such as style (meander, braided, anasto), thickness_px, erosion_depth_px, seed, and any per-package parameter overrides. Include structures to hold per-package boundary masks and a stable package_id so downstream stats and reporting can reference packages consistently. Ensure types and docstrings align with existing generator parameter conventions in geologic_generators.py.
+
+## 2. Define generator dispatch map for fluvial styles in stacked_channels [pending]
+### Dependencies: 6.1
+### Description: Create a GENERATOR_MAP that routes styles to existing fluvial generator functions.
+### Details:
+In stacked_channels.py, import the public generator entry points from geologic_generators.py (e.g., generate_meandering, generate_braided, generate_anastomosing) and build a GENERATOR_MAP dictionary keyed by style strings such as 'meander', 'braided', and 'anasto'. Ensure each callable accepts (params, rng) and returns (gray, masks_dict) consistent with Tasks 2–4. Document expected mask keys and gray dtypes so sequence_packages and relief routines can treat all styles uniformly.
+
+## 3. Implement sequence_packages to build 3D gray stack and per-package masks [pending]
+### Dependencies: 6.1, 6.2
+### Description: Implement sequence_packages(package_specs, base_grid_shape, rng) to loop over packages, call generators, and accumulate stacked outputs.
+### Details:
+Add sequence_packages(package_specs, base_grid_shape, rng) in stacked_channels.py that allocates a stack array of shape (n_packages, H, W) and iterates over ordered package_specs. For each spec, use GENERATOR_MAP[spec.style] to obtain (gray, masks), resize or crop to base_grid_shape if needed, and store gray into the stack index. Track per-package masks and metadata in parallel lists or dicts keyed by package_id. Ensure that generator parameters are cloned and updated per spec to avoid mutating shared dicts, and that sequence order is deterministic given the same RNG seed and package_specs.
+
+## 4. Design and implement apply_relief functions for vertical stacking [pending]
+### Dependencies: 6.1, 6.3
+### Description: Create apply_relief or equivalent helpers that map individual package gray images into a vertically stacked representation with relief.
+### Details:
+Introduce one or more helper functions (e.g., apply_relief(gray, current_surface, relief_px, erosion_style)) that take a single package gray array and an accumulated surface or elevation model and return an updated representation reflecting erosional relief and thickness. Decide whether to represent relief as a separate elevation grid or implicitly via mask blending; implement logic to offset or attenuate underlying packages according to relief_px and thickness_px. Ensure interfaces integrate cleanly with sequence_packages so each package slice is transformed consistently before insertion into the stack.
+
+## 5. Implement cut_erosional_surface and integrate with stacking loop [pending]
+### Dependencies: 6.3, 6.4
+### Description: Implement cut_erosional_surface(previous_stack, relief_px, style) and wire it into the package sequencing workflow.
+### Details:
+In stacked_channels.py, implement cut_erosional_surface(previous_stack, relief_px, style) to compute an erosional surface given the accumulated stack so far, using style-dependent logic when needed (e.g., different relief textures for braided vs meandering). Have this function return both an updated stack or surface representation and erosion masks that can be used as boundary masks. Integrate calls to cut_erosional_surface into the sequence_packages loop so that for each new package, erosion is applied to previously deposited packages before the new package is added, tracking erosion_depth in metadata.
+
+## 6. Export boundary masks and package_id_map for stats and reporting [pending]
+### Dependencies: 6.3, 6.4, 6.5
+### Description: Define and compute upper_surface_mask, erosion_surface_mask, package_id_map, and aggregated metadata outputs.
+### Details:
+Extend stacked_channels.py to derive final boundary products after stacking: an upper_surface_mask marking the topmost exposed cells, an erosion_surface_mask marking erosional contacts, and a package_id_map assigning each pixel in the final composite to a package_id or background. Aggregate per-package metadata (style, thickness_px, erosion_depth_px, relief_px, etc.) into a structured record suitable for downstream stats and reporting APIs. Ensure these outputs have consistent shapes with base_grid_shape and are returned from the main stacking API along with the composite gray image and masks_dict.
+
+## 7. Implement build_stacked_fluvial API and single vs stacked mode toggle [pending]
+### Dependencies: 6.2, 6.3, 6.4, 6.5, 6.6
+### Description: Create build_stacked_fluvial(params) to route between single-belt and stacked workflows without duplicating generator logic.
+### Details:
+In stacked_channels.py, implement build_stacked_fluvial(params) that inspects params["mode"] and package_count-related fields to decide whether to call existing single-belt generators directly or to construct package_specs and invoke sequence_packages. Reuse the same generator entry points wired into GENERATOR_MAP so no generator logic is duplicated. Ensure the function returns (gray, masks, metadata) with a compatible shape and mask schema to existing single-belt outputs, and that when package_count == 1 in stacked mode, the result is equivalent to the single-belt path within numerical tolerance.
+
+## 8. Wire stacked mode into generate_fluvial and parameter plumbing [pending]
+### Dependencies: 6.7
+### Description: Integrate build_stacked_fluvial into geologic_generators.generate_fluvial so callers can select stacked workflows via params and sliders.
+### Details:
+Modify geologic_generators.py to import build_stacked_fluvial and update generate_fluvial to recognize a mode key (e.g., params.get('mode', 'single')) plus new stacked parameters like package_count and erosional_relief_px. Update the function to route fluvial environments to either existing single-belt generators or the stacked builder as appropriate, ensuring the public API remains backward compatible. Adjust any existing parameter validation, docstrings, and env-to-slider mappings so the new stacked options integrate cleanly.
+
+## 9. Create unit tests for stacked_channels behaviors and invariants [pending]
+### Dependencies: 6.3, 6.4, 6.5, 6.6, 6.7, 6.8
+### Description: Add tests/test_stacked_channels.py to verify package counts, erosion-thickness relationships, mask unions, and single-belt equivalence.
+### Details:
+Create a new test module tests/test_stacked_channels.py that exercises the main stacking APIs with several configurations. Include tests confirming that the number of stacked slices equals package_count, that increasing erosion_depth_px reduces net preserved thickness, that unions of boundary masks remain within the grid extents, and that when package_count == 1 stacked outputs match single-belt results from generate_fluvial. Use deterministic seeded RNG and assert on shapes, dtypes, and simple statistics rather than strict pixel equality when appropriate.
+
+## 10. Extend smoke tests and documentation for stacked workflows and anchors [pending]
+### Dependencies: 6.7, 6.8, 6.9
+### Description: Update smoke tests, GEOLOGIC_RULES, and notebooks to document stacked channel workflows, anchors, and slider mappings.
+### Details:
+Edit scripts/smoke_test.py to include at least one small stacked configuration (e.g., 2–3 packages with mixed styles) and verify that boundary masks, package_id_map, and metadata are present and sane. Update docs/GEOLOGIC_RULES.md to describe the stacked channel package principles, including package_count, erosional_relief_px, and style mix, and add or update anchor IDs using the anchor-<env>-<principle> pattern referencing fully qualified function names like analog_image_generator.stacked_channels.build_stacked_fluvial. Ensure relevant environment notebooks under notebooks/ add markdown anchors describing the stacked workflow and slider mapping consistent with the code.
+

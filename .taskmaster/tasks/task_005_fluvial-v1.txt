@@ -1,0 +1,81 @@
+# Task ID: 5
+# Title: Add sedimentary structures & petrology overlays
+# Status: pending
+# Dependencies: 2, 3, 4
+# Priority: medium
+# Description: Layer fining-upward textures, cross-bedding, ripple bands, channel-fill sandstone masks, and mineralogical metadata across all fluvial generators.
+# Details:
+- Introduce `channel_fill_sandstone(gray, masks, rng)` applying erosional bases + infill textures via procedural noise (e.g., Perlin or filtered noise) and output mask `channel_fill`.
+- Add overlays: `apply_cross_bedding(mask, style="trough"|"planar")`, `ripple_mark_texture(overbank_mask)`, `lateral_accretion_surface(centerline, belts)` referencing PRD appendix.
+- Expand mask dict to include `fining_upward`, `cross_bed`, `ripple`, `overbank_mudstone` plus metadata fields: `mineralogy={"feldspar":0.55,...}`, `cement_signature`, `mud_clasts_bool`.
+- Update generator pipelines (Tasks 2–4) to call overlays after core geometry and to attach property dictionaries for stats/reporting.
+- Document new GEOLOGIC_RULES entries + notebook anchors (v20 notebooks) describing approximations when sub-pixel detail used.
+- Pseudo snippet: `fining_mask = cumulative_sum_along_flow(channel_width_map) / channel_width_map.max()`.
+- Store petrology metrics (presence/absence) in a `realization_metadata` block for compute_metrics/reporting consumption.
+
+# Test Strategy:
+- Extend generator unit tests to confirm overlays exist (non-zero pixels) and mineralogical totals sum to 1.0.
+- Add targeted tests verifying erosion bases align with channel masks by checking gradient sign flips along belt centerline.
+- Visual inspection via pytest `--basetemp` saved images; failure threshold triggered if overlay missing (use `assert masks["cross_bed"].sum() > min_px`).
+
+# Subtasks:
+## 1. Design sedimentary overlay API and mask/metadata schema [pending]
+### Dependencies: None
+### Description: Define the public API, argument signatures, and data structures for channel-fill, cross-bedding, ripple, and lateral accretion overlays plus petrology metadata.
+### Details:
+Work in src/analog_image_generator/geologic_generators.py to sketch function signatures for channel_fill_sandstone(gray, masks, rng, **params), apply_cross_bedding(mask, style, rng, **params), ripple_mark_texture(overbank_mask, rng, **params), and lateral_accretion_surface(centerline, belts, rng, **params). Decide on returned structure (e.g., updated_gray, updated_masks, realization_metadata) and extend the masks dict schema to include keys like 'channel_fill', 'fining_upward', 'cross_bed', 'ripple', and 'overbank_mudstone'. Define a realization_metadata structure that can store petrology dictionaries and flags in a stable, serializable form for downstream stats/reporting, and document these expectations inline and in short comments for later tasks to implement.
+
+## 2. Implement channel_fill_sandstone with erosional bases and infill textures [pending]
+### Dependencies: 5.1
+### Description: Implement channel_fill_sandstone to carve erosional bases beneath channels and infill them with procedurally textured sandstone, returning a channel_fill mask.
+### Details:
+In geologic_generators.py, implement channel_fill_sandstone(gray, masks, rng, **params) to detect active channel or belt masks, derive an erosional base surface (e.g., using distance-to-channel combined with a smoothed random field), and apply a fining-upward sandstone infill texture using Perlin-like or filtered noise. Update the gray field in-place or return a modified copy, and create a boolean mask 'channel_fill' indicating channel-fill sandstone pixels. Ensure the function is deterministic for a given RNG, supports configurable texture amplitude and vertical thickness parameters, and leaves non-channel areas unchanged. Keep the implementation vectorized with NumPy and compatible with existing gray and masks shapes and dtypes.
+
+## 3. Implement cross-bedding, ripple textures, and lateral accretion overlays [pending]
+### Dependencies: 5.1, 5.2
+### Description: Add apply_cross_bedding, ripple_mark_texture, and lateral_accretion_surface helpers that generate structured sedimentary overlays tied to existing facies masks and centerlines.
+### Details:
+Implement apply_cross_bedding(mask, style, rng, **params) to overlay oriented cross-bed laminae within channel_fill or bar masks using banded noise or line patterns, respecting style options 'trough' and 'planar'. Implement ripple_mark_texture(overbank_mask, rng, **params) to add shallow-amplitude, short-wavelength ripples on exposed overbank or floodplain regions. Implement lateral_accretion_surface(centerline, belts, rng, **params) to derive inclined accretion surfaces based on along-flow distance or curvature of the centerline, returning an additional mask (e.g., 'lateral_accretion') and optional gray modulation. Ensure these helpers only modify pixels inside the supplied masks, keep output arrays aligned with the global grid, and are parameterized for later tuning via PRD sliders.
+
+## 4. Add fining-upward and overbank mudstone masks with grayscale modulation [pending]
+### Dependencies: 5.1, 5.2, 5.3
+### Description: Introduce fining-upward and overbank_mudstone masks and adjust grayscale textures to express vertical fining trends and muddy overbank facies.
+### Details:
+Using the pseudo-snippet fining_mask = cumulative_sum_along_flow(channel_width_map) / channel_width_map.max(), implement a helper that computes a normalized fining-upward index along the flow direction within channels or belts, and derive a boolean mask 'fining_upward' plus a continuous field that modulates gray values (e.g., lighter upward, darker downward). Similarly, derive an 'overbank_mudstone' mask from existing overbank/floodplain masks and apply subtle grayscale adjustments to indicate muddier, lower-contrast textures. Ensure the new masks are added to the masks dict consistently for all fluvial environments and that modulation does not destroy existing contrast budgets or violate PALETTES assumptions.
+
+## 5. Define petrology metadata schema and attach mineralogy, cement, and mud clast flags [pending]
+### Dependencies: 5.1, 5.2, 5.3, 5.4
+### Description: Design and implement a petrology metadata block capturing mineralogy fractions, cement signatures, and mud clast presence, and attach it to realization_metadata.
+### Details:
+Define a realization_metadata['petrology'] structure that includes a normalized mineralogy dict (e.g., {'quartz': x, 'feldspar': y, 'lithics': z}), a cement_signature field (string or small enum-like code), and a mud_clasts_bool flag (or similar) indicating mud clast presence. Implement helpers to generate default or environment-specific petrology profiles for meandering, braided, and anastomosing realizations, and ensure mineralogy fractions are normalized to sum to 1.0 within numerical tolerance. Wire this metadata into the outputs of the fluvial generators or the overlay pipeline so that compute_metrics and reporting can read it consistently, without yet implementing full metrics logic from Task 8.
+
+## 6. Integrate sedimentary overlays into meandering, braided, and anastomosing pipelines [pending]
+### Dependencies: 5.2, 5.3, 5.4, 5.5
+### Description: Update generate_meandering, generate_braided, and generate_anastomosing pipelines to call overlay helpers after core geometry and facies construction, returning expanded masks and metadata.
+### Details:
+In geologic_generators.py, modify generate_meandering, generate_braided, and generate_anastomosing so that after they build core geometry, facies masks, and base grayscale images, they invoke channel_fill_sandstone, apply_cross_bedding, ripple_mark_texture, lateral_accretion_surface, and the fining-upward/overbank helpers. Ensure each generator updates its masks dict with 'channel_fill', 'fining_upward', 'cross_bed', 'ripple', 'overbank_mudstone', and any lateral accretion masks, and that realization_metadata is enriched with petrology information in a consistent schema across environments. Maintain backward compatibility for callers by preserving the (gray, masks, metadata) return pattern and validating that overlays respect environment-specific parameters (e.g., stronger cross-bedding in braided bars than in overbank).
+
+## 7. Update PALETTES and GEOLOGIC_RULES with new facies and overlay principles [pending]
+### Dependencies: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
+### Description: Extend PALETTES and GEOLOGIC_RULES documentation, including anchors, to cover channel-fill sandstone, fining-upward trends, cross-beds, ripples, overbank mudstone, and petrology metadata.
+### Details:
+Edit docs/PALETTES.md to assign or confirm stable palette entries for channel_fill, fining_upward, cross_bed, ripple, overbank_mudstone, and any new masks used by sedimentary overlays so that future visualizations and reports use consistent colors and legends. Update docs/GEOLOGIC_RULES.md to describe conceptual rules for erosional bases, channel-fill textures, cross-bedding styles, ripple formation, fining-upward behavior, and associated petrology assumptions, and add code anchors referencing fully qualified functions in analog_image_generator.geologic_generators.*. Add or update notebook markdown anchors in the appropriate notebooks (e.g., notebooks/fluvial_v20.ipynb) following the anchor-<env>-<principle> convention so that each new or modified principle is traceable from code to documentation.
+
+## 8. Extend unit tests for fluvial generators and shared sedimentary overlays [pending]
+### Dependencies: 5.2, 5.3, 5.4, 5.5, 5.6
+### Description: Add and update tests to validate overlay masks, petrology normalization, and spatial alignment for meandering, braided, and anastomosing generators plus shared helpers.
+### Details:
+Update tests/test_meandering.py, tests/test_braided.py, and tests/test_anastomosing.py to include checks that channel_fill, fining_upward, cross_bed, ripple, and overbank_mudstone masks exist and are non-empty for representative parameter sets. Add a new tests/test_structures.py module (or similar) that exercises channel_fill_sandstone, apply_cross_bedding, ripple_mark_texture, and lateral_accretion_surface on controlled synthetic inputs to verify spatial alignment (e.g., erosional bases always lie below channels along a gradient) and pattern orientation. Include assertions that petrology mineralogy sums to 1.0, that mud_clasts_bool is correctly set based on environment, and that overlays respect RNG determinism. Keep tests fast and avoid heavy plotting, relying on simple numeric summaries and small grids.
+
+## 9. Add sedimentary overlay smoke tests to scripts/smoke_test.py [pending]
+### Dependencies: 5.6, 5.8
+### Description: Extend the smoke test script to generate quick visual and numeric checks for sedimentary structures and petrology overlays across all fluvial environments.
+### Details:
+Modify scripts/smoke_test.py (or the existing smoke-test entry point) to run generate_meandering, generate_braided, and generate_anastomosing with typical parameter sets and the new overlays enabled, saving representative gray images or thumbnails and summarizing key mask coverages (channel_fill, fining_upward, cross_bed, ripple, overbank_mudstone) plus petrology summaries. Optionally emit simple text or JSON statistics such as overlay pixel fractions and mineralogy breakdowns to facilitate quick visual and quantitative sanity checks. Ensure the smoke tests are lightweight enough to run as part of a pre-release check without excessive runtime or storage overhead.
+
+## 10. Document approximations, limitations, and notebook anchors for sedimentary overlays [pending]
+### Dependencies: 5.6, 5.7, 5.8, 5.9
+### Description: Capture modeling approximations and limitations for erosional bases, textures, and petrology in notebooks and GEOLOGIC_RULES utility sections, with proper anchors for review.
+### Details:
+Update relevant v20 fluvial notebooks in the notebooks/ directory to include markdown cells explaining how erosional bases, channel-fill sandstone textures, cross-beds, ripples, fining-upward patterns, and overbank mudstone are approximated numerically (e.g., sub-pixel assumptions, noise model simplifications, lack of fully resolved laminae). Add explicit notes on petrology simplifications such as assumed mineralogy ranges and cement types. Ensure that each principle has a corresponding anchor ID of the form anchor-<env>-<principle> and that GEOLOGIC_RULES.md references these anchors in the notebook anchor column. Clarify which aspects are intended for qualitative realism versus quantitative petrophysical fidelity so reviewers and users can interpret metrics and reports correctly.
+

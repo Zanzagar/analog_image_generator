@@ -1,0 +1,77 @@
+# Task ID: 9
+# Title: Enhance reporting for aeolian CSV + PDF deliverables
+# Status: pending
+# Dependencies: 8
+# Priority: medium
+# Description: Upgrade `reporting.py` to emit aeolian-aware CSV columns, per-style PDFs, and a master PDF containing thumbnails, legends, and property summaries.
+# Details:
+Modify `build_reports` to accept env metadata, add Aeolian metrics columns (ridge continuity, PSD residual, rounding index, gradation sign, cement type, event counts). Use ReportLab to create templates for barchan/linear/transverse PDFs with slider summaries, sequential preview frames, and acceptance-band annotations. Generate a master PDF combining all runs plus legends from docs/PALETTES.md, ensuring cement tags appear in legends. Save CSV schema reference in `docs/TASKMASTER_TASKS_EXPORT.md`.
+Pseudo-code:
+```
+def build_reports(metrics_rows, output_dir):
+    csv_path = write_csv(metrics_rows, aeolian_schema)
+    for style in {"barchan","linear","transverse"}:
+        style_rows = filter_rows(metrics_rows, style)
+        pdf = build_style_pdf(style_rows)
+    build_master_pdf(metrics_rows)
+```
+Ensure outputs integrate with Task Master artifacts per acceptance criteria.
+
+# Test Strategy:
+Add `tests/test_reporting_aeolian.py` to (a) write sample metrics and assert CSV headers match schema, (b) verify per-style PDFs exist and contain expected text via PyPDF2, and (c) confirm master PDF includes thumbnails count equal to realizations. Include golden-file checksum checks for CI.
+
+# Subtasks:
+## 1. Review existing reporting, metrics, and artifact expectations [pending]
+### Dependencies: None
+### Description: Inspect current reporting stub, metrics contracts, and artifact expectations for Aeolian runs.
+### Details:
+Open `src/analog_image_generator/reporting.py`, `scripts/smoke_test.py`, Task 8 metrics specs, and any existing CSV/PDF outputs to understand required inputs, current naming conventions, and how Task Master ingests artifacts for Aeolian environments.
+
+## 2. Design Aeolian CSV schema and update TASKMASTER_TASKS_EXPORT documentation [pending]
+### Dependencies: 9.1
+### Description: Define full Aeolian-aware CSV column schema and document it clearly.
+### Details:
+Specify a structured CSV schema including base columns plus Aeolian metrics such as ridge continuity, PSD residual, rounding index, gradation sign, cement type, and event counts. Ensure column order, naming, dtypes, and units are clearly defined and then update or extend `docs/TASKMASTER_TASKS_EXPORT.md` so the Aeolian schema is versioned and traceable for downstream consumers.
+
+## 3. Implement CSV writing helpers to emit Aeolian metrics with new schema [pending]
+### Dependencies: 9.2
+### Description: Create or refactor helpers that write Aeolian rows to CSV using the designed schema.
+### Details:
+Extend `src/analog_image_generator/reporting.py` with dedicated CSV writer utilities that accept env metadata and Aeolian metrics rows, map them to the new schema, and either create or append to the CSV file. Ensure missing values are handled consistently, headers are stable, and row ordering supports later PDF aggregation while remaining compatible with existing non-Aeolian reporting (if any).
+
+## 4. Extend build_reports signature and orchestration for Aeolian env metadata [pending]
+### Dependencies: 9.3
+### Description: Update build_reports to accept env metadata and route Aeolian metrics into CSV/PDF generation.
+### Details:
+Modify `build_reports` in `reporting.py` to accept explicit env metadata (e.g., env name, style, run identifiers, parameter summaries) alongside Aeolian metrics rows. Have it call the new CSV writer helpers, group metrics by dune style (barchan, linear, transverse), and prepare the per-style slices and thumbnails needed by downstream PDF builders without yet finalizing layout details.
+
+## 5. Implement per-style Aeolian PDF templates with ReportLab [pending]
+### Dependencies: 9.2, 9.3, 9.4
+### Description: Use ReportLab to build barchan, linear, and transverse PDF layouts with thumbnails and metrics.
+### Details:
+Add style-specific PDF builder functions (e.g., `build_style_pdf(style_name, style_rows, env_metadata, thumbnails, output_dir)`) that use ReportLab to render per-style documents containing run thumbnails, slider summaries, key Aeolian metrics, and acceptance-band annotations. Ensure the layout is reusable across styles with minimal duplication while allowing style-specific labels or sections when needed.
+
+## 6. Integrate palette legends and cementation color keys from PALETTES.md [pending]
+### Dependencies: 9.1, 9.5
+### Description: Load legend definitions and cementation colors from docs/PALETTES.md for use in PDFs.
+### Details:
+Implement a small parser or mapping loader that reads `docs/PALETTES.md` (or an auxiliary structured file if available) to obtain palette labels, color swatches, and cementation tags. Expose a helper that renders consistent legend blocks and cementation color keys in ReportLab canvases, and then incorporate these blocks into each per-style PDF so legends stay synchronized with the palette documentation.
+
+## 7. Implement master Aeolian PDF assembly with legends and property summaries [pending]
+### Dependencies: 9.5, 9.6
+### Description: Compose a master PDF that aggregates all Aeolian runs, style PDFs, legends, and summary tables.
+### Details:
+Add a `build_master_pdf` function that collates metrics across all Aeolian runs, constructs property summary tables, embeds or references per-style sections, and appends palette legends and cementation keys. Ensure the master layout includes thumbnails for each realization, clearly labeled sections per style, and stable ordering so downstream checks can count thumbnails and pages reliably.
+
+## 8. Align file naming and output directories with smoke tests and Task Master artifacts [pending]
+### Dependencies: 9.3, 9.4, 9.5, 9.7
+### Description: Standardize CSV and PDF filenames and directories to match smoke tests and artifact contracts.
+### Details:
+Define a clear output layout under an `outputs` or project-specific reporting directory such that CSVs, per-style PDFs, and the master PDF follow predictable naming patterns keyed by env, tag, and timestamp. Update `build_reports` to honor this convention and cross-check against `scripts/smoke_test.py` and Task Master documentation so the Aeolian outputs are automatically discovered and archived without breaking existing workflows.
+
+## 9. Add end-to-end Aeolian reporting tests and basic checksums [pending]
+### Dependencies: 9.3, 9.5, 9.7, 9.8
+### Description: Create focused tests to validate CSV headers, PDF content, and simple structural checksums for Aeolian reporting.
+### Details:
+Introduce `tests/test_reporting_aeolian.py` to drive a minimal end-to-end Aeolian reporting run that writes CSV, per-style PDFs, and a master PDF from a small synthetic metrics dataset. Assert that CSV headers match the documented schema, PDFs are readable and contain expected labels, and optionally compute lightweight checksums or size thresholds so CI can detect accidental schema or layout regressions without relying on heavy golden files.
+

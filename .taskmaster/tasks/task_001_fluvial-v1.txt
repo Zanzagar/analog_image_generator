@@ -1,0 +1,61 @@
+# Task ID: 1
+# Title: Implement shared rasterization + RNG utilities
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Build `analog_image_generator.utils` helpers needed by all generators (grids, seeded RNG, palette/mask helpers).
+# Details:
+- Add `seeded_rng(seed: int) -> np.random.Generator` plus wrappers for stratified seeds per environment (e.g., `rng = seeded_rng(params.get("seed", 42))`).
+- Provide grid factories: `make_field(height, width, fill=0.0)`, `normalized_coords`, and lightweight EDT helpers (use `scipy.ndimage.distance_transform_edt`).
+- Implement mask utilities: `blend_masks`, `boolean_stack_to_rgb(masks, palette)`, serialization metadata (dtype float32, H×W).
+- Expose palette lookup by env via `docs/PALETTES.md` constants.
+- Sketch pseudo:
+```
+def seeded_rng(seed: int) -> Generator:
+    bitgen = np.random.PCG64(seed % 2**32)
+    return np.random.Generator(bitgen)
+```
+- Ensure functions include docstrings referencing GEOLOGIC_RULES anchors (utility section) for traceability.
+
+# Test Strategy:
+- Add `tests/test_utils.py` covering deterministic RNG sequences and grid shape outputs via property-based checks (`hypothesis` or manual loops).
+- Validate dtype/shape of `boolean_stack_to_rgb` by creating fake mask dict and comparing palette colors.
+- Run `pytest` + `pre-commit` to keep coverage for new module.
+
+# Subtasks:
+## 1. Design and implement `seeded_rng` and env-specific RNG wrappers [pending]
+### Dependencies: None
+### Description: Implement `analog_image_generator.utils.seeded_rng(seed: int) -> np.random.Generator` using PCG64 and add simple wrapper functions for stratified, environment-specific seeds.
+### Details:
+Open `src/analog_image_generator/utils.py`, replace the current `seeded_rng` stub with an implementation based on `np.random.PCG64(seed % 2**32)` wrapped in `np.random.Generator`, and add small helper functions like `rng_for_env(env: str, base_seed: int)` or similar to derive reproducible sub-seeds per environment (e.g., hash of env plus base seed) while keeping the API simple for generators; include clear docstrings referencing the appropriate GEOLOGIC_RULES utility anchors and note expected usage patterns for downstream generator modules.
+
+## 2. Add grid utilities: `make_field`, `normalized_coords`, and EDT helpers [pending]
+### Dependencies: 1.1
+### Description: Create reusable grid helper functions for field allocation, normalized coordinate grids, and distance transform utilities in the utils module.
+### Details:
+Within `src/analog_image_generator/utils.py`, implement `make_field(height: int, width: int, fill: float = 0.0)` returning a `float32` array of shape (H, W) filled with the given value, plus `normalized_coords(height, width)` returning two `float32` arrays (yy, xx) normalized to [0,1] or [-1,1] as agreed; add thin wrappers around `scipy.ndimage.distance_transform_edt` (e.g., `distance_to_mask(mask)` and `signed_distance(mask, invert=False)`) that always return `float32` H×W arrays; ensure all functions have docstrings mentioning GEOLOGIC_RULES utility anchors and expected conventions for downstream generators.
+
+## 3. Implement mask utilities: `blend_masks` and `boolean_stack_to_rgb` [pending]
+### Dependencies: 1.2
+### Description: Provide mask manipulation helpers for blending, stacking, and RGB conversion that respect float32 H×W serialization metadata conventions.
+### Details:
+Extend `src/analog_image_generator/utils.py` with `blend_masks(mask_list, weights=None)` (or similar) to combine multiple float or boolean masks into a single float32 field using weighted sums or max operations, and implement `boolean_stack_to_rgb(masks: Dict[str, np.ndarray], palette: Dict[str, Tuple[float, float, float]])` that converts a stack of boolean masks into an RGB image by applying palette colors per mask, resolving overlaps via a deterministic rule (e.g., priority ordering or last-one-wins); ensure outputs are `float32` arrays with shape (H, W, 3) or (3, H, W) as decided and that helpers attach or at least respect metadata conventions (dtype float32, H×W) documented for serialization; add docstrings that cross-reference GEOLOGIC_RULES utility and masking rules.
+
+## 4. Introduce centralized palette lookup aligned with `docs/PALETTES.md` [pending]
+### Dependencies: 1.3
+### Description: Create a palette lookup mechanism in utils keyed by environment names that mirrors the definitions and semantics in `docs/PALETTES.md`.
+### Details:
+Inspect `docs/PALETTES.md` and implement a small registry or helper function in `src/analog_image_generator/utils.py` (or a dedicated palette module re-exported from utils) such as `get_palette(env: str)` that returns a mapping from mask keys to RGB tuples or arrays, ensuring names and colors align with PALETTES documentation; include validation logic (or at least assertions) that all documented keys exist and that color values are in the expected range and dtype; provide docstrings explaining supported env strings (e.g., meandering, braided, anastomosing), how this interacts with `boolean_stack_to_rgb`, and how future palettes should be added.
+
+## 5. Create `tests/test_utils.py` covering RNG, grids, masks, and palettes [pending]
+### Dependencies: 1.1, 1.2, 1.3, 1.4
+### Description: Add a dedicated test module verifying determinism, shapes, dtypes, and palette behavior for the new utils functions.
+### Details:
+Add `tests/test_utils.py` that imports `analog_image_generator.utils` and exercises `seeded_rng` and env wrappers, grid helpers (`make_field`, `normalized_coords`, EDT wrappers), mask utilities (`blend_masks`, `boolean_stack_to_rgb`), and palette lookup, using small deterministic examples; organize tests into focused functions or classes, include both positive and edge cases, and ensure assertions cover sequence determinism, array shapes, dtypes (float32 where required), and palette-key alignment with `docs/PALETTES.md`; keep tests fast and independent of heavier generator modules so they form a reliable foundation for later tasks.
+
+## 6. Update GEOLOGIC_RULES and notebook anchors for new utils [pending]
+### Dependencies: 1.1, 1.2, 1.3, 1.4, 1.5
+### Description: Ensure new utility functions are documented and traceable by updating GEOLOGIC_RULES and relevant notebook markdown anchors to reference them.
+### Details:
+Edit `docs/GEOLOGIC_RULES.md` (or `GEOLOGIC_RULES.md` at the documented path) to add or update entries in the utility section that describe the behavior and rationale for `seeded_rng`, grid helpers, mask utilities, and palette lookup, including their fully qualified names (e.g., `analog_image_generator.utils.seeded_rng`); then update the appropriate Jupyter notebooks under `notebooks/` to include markdown anchors following the `anchor-<env>-<principle>` convention that reference these functions in the code anchor column, keeping anchors consistent with the new or updated rules; verify that every new or changed function appears in both the code anchor and notebook anchor listings to satisfy traceability requirements.
+

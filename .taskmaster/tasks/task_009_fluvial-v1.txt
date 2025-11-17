@@ -1,0 +1,78 @@
+# Task ID: 9
+# Title: Implement reporting pipeline (CSV, per-env PDFs, master PDF)
+# Status: pending
+# Dependencies: 7, 8
+# Priority: medium
+# Description: Complete `reporting.py` to output metrics CSV, mosaics, per-environment PDF pages with histograms + tables, and master PDF with overview + appended reports.
+# Details:
+- Build `build_reports(metrics_rows, output_dir)` to:
+  1. Write CSV (pandas) following schema in PRD.
+  2. Save mosaics: grayscale grid + facies color + legend from palettes for each env; include stacked boundary overlays when present.
+  3. Generate per-env PDF (ReportLab) with layout: title, side-by-side grayscale vs facies, β & D histograms (Matplotlib -> PNG -> embed), metrics summary table including PSD_AR, compactness, connectivity, petrology tags.
+  4. Assemble master PDF cover summarizing global stats, flagged violations, thumbnails, and append env PDFs via PyPDF2.
+- Integrate QA flags: highlight metric deviations beyond acceptance ranges, sed/petrology compliance, and cross-reference realization IDs.
+- Ensure reporting step consumes metadata from stats + stacked packages.
+- Provide CLI helper or doc snippet detailing invocation.
+- Reference `docs/PALETTES.md` for legend order consistency.
+- Update notebooks/workflow docs describing export steps.
+
+# Test Strategy:
+- Create `tests/test_reporting.py` using tmp path to ensure CSV contains all columns and PDF files exist/non-empty; parse PDF metadata to confirm appended pages.
+- Mock metrics rows to trigger violation flag and assert it appears in generated summary table (use PyPDF2 text extraction or inspect ReportLab data structure before rendering).
+- Extend smoke script to run minimal batch (N=1 per env) piping through reporting and verifying outputs saved under `outputs/smoke/`.
+
+# Subtasks:
+## 1. Define metrics_rows schema and CSV column mapping [pending]
+### Dependencies: None
+### Description: Finalize the metrics_rows list-of-dicts schema and its mapping to the reporting CSV columns defined in the PRD.
+### Details:
+Review the PRD, stats outputs, and stacked package metadata to enumerate all required CSV columns (e.g., env, realization_id, PSD_AR, compactness, connectivity, petrology tags, stacked package metadata, QA flags). Define a canonical metrics_rows dict schema in src/analog_image_generator/reporting.py, including key names, value types, and handling of optional fields. Document the schema in code docstrings and ensure it can ingest metadata from both the stats module and stacked channel packages without ambiguity.
+
+## 2. Implement deterministic CSV export in build_reports using pandas [pending]
+### Dependencies: 9.1
+### Description: Write the CSV export logic in build_reports so that it produces a stable, schema-compliant metrics CSV across runs.
+### Details:
+In src/analog_image_generator/reporting.py, implement the first stage of build_reports to convert metrics_rows into a pandas DataFrame using the schema from subtask 1. Specify an explicit ordered list of columns to enforce deterministic column ordering and set dtypes where appropriate (e.g., numeric for metrics, boolean/string for QA flags, categorical for env). Write the CSV to output_dir (e.g., metrics.csv) with UTF-8 encoding and without index, and ensure repeated invocations with the same metrics_rows produce identical CSV byte content. Handle basic validation (e.g., missing required columns) with clear error messages suitable for CI.
+
+## 3. Implement mosaic generation helpers for grayscale, facies, legends, and stacked overlays [pending]
+### Dependencies: 9.1
+### Description: Create functions to generate and save per-environment mosaic images including grayscale, facies color, legends, and stacked boundary overlays.
+### Details:
+Add helper functions in reporting.py (e.g., generate_env_mosaics or similar) that take per-environment gray arrays, facies masks, palette IDs, and stacked package boundary metadata to produce PNG mosaics using Matplotlib or Pillow. Implement side-by-side or grid layouts for grayscale and facies-color views, apply colors from docs/PALETTES.md in the documented legend order, and render legends that match the palette definitions. Overlay stacked boundary masks when present (e.g., semi-transparent lines or filled regions) and save deterministic filenames (e.g., mosaics/{env}_gray.png, {env}_facies.png, {env}_stacked.png) under output_dir, returning paths for later PDF embedding.
+
+## 4. Implement per-environment PDF page generation with mosaics, histograms, and summary tables [pending]
+### Dependencies: 9.2, 9.3
+### Description: Use ReportLab to build per-environment PDFs that embed mosaics, β/D histograms, and metrics summary tables including QA flags.
+### Details:
+Implement a function in reporting.py (e.g., build_env_report_pdf(env_name, env_rows, mosaic_paths, output_dir)) that uses ReportLab to create a single-environment PDF. Layout should include a title header, side-by-side grayscale and facies mosaics (using the paths from subtask 3), β and D histograms rendered via Matplotlib to temporary PNGs and embedded into the PDF, and a metrics summary table listing PSD_AR, compactness, connectivity, petrology tags, and any QA flags from env_rows. Ensure text for flagged metrics is clearly distinguished (e.g., bold or color) and that page size, fonts, and margins are consistent across environments. Save each env PDF under a deterministic name like pdf/{env}_report.pdf and return the paths to build_reports.
+
+## 5. Implement master PDF assembly with global summary cover and appended env PDFs [pending]
+### Dependencies: 9.4
+### Description: Create a master report PDF that summarizes global stats on a cover page and appends all per-environment PDFs using PyPDF2.
+### Details:
+In reporting.py, implement a function such as build_master_report(master_rows, env_pdf_paths, output_dir) that first uses ReportLab to create a master cover PDF containing high-level statistics (aggregated across metrics_rows), a list of environments, counts of realizations, and a summary of QA violations. Optionally embed small thumbnail mosaics or icons per environment. Then use PyPDF2 to merge the cover PDF with each per-environment PDF in a deterministic order (e.g., sorted by env name) into a single master PDF (e.g., pdf/master_report.pdf). Ensure file handles are closed, temporary cover PDFs are cleaned up, and that the resulting file has the expected number of pages and consistent metadata fields like title and subject.
+
+## 6. Integrate QA flagging logic for metric deviations and sed/petrology compliance [pending]
+### Dependencies: 9.1, 9.2, 9.3, 9.4
+### Description: Implement functions to compute and attach QA flags for out-of-range metrics and sed/petrology rule violations, and propagate them into CSV and PDFs.
+### Details:
+Define acceptance ranges and rule checks based on the PRD and geologic rules (e.g., tolerances for PSD_AR, compactness, connectivity, beta/D distributions, and sedimentary or petrology consistency with environment type). Implement helper functions in reporting.py that take individual metrics_rows entries, compute QA flags (e.g., fields like qa_out_of_range, qa_sed_noncompliant, qa_petrology_mismatch, qa_notes), and merge them back into the row dict. Ensure build_reports applies this logic before CSV writing and PDF generation so that flags appear as dedicated CSV columns and are clearly indicated in the per-env tables and master summary. Keep the logic deterministic and easy to extend for new rules.
+
+## 7. Design deterministic output directory structure and naming conventions for reporting artifacts [pending]
+### Dependencies: 9.2, 9.3, 9.4, 9.5, 9.6
+### Description: Define and implement a clear directory layout and file-naming scheme for CSV, mosaics, and PDFs produced by build_reports.
+### Details:
+Decide on a stable directory hierarchy under output_dir (e.g., metrics.csv at root, mosaics/ for image assets, pdf/ for per-env and master PDFs) and update build_reports to create these directories as needed. Standardize filename patterns that encode env names and realization IDs where appropriate, ensuring they are filesystem-safe and sortable (e.g., zero-padded indices). Reflect these conventions in all helper functions so that downstream tools and CI can rely on them. Update or add docstrings in reporting.py explaining the output layout for other modules and for notebook consumers.
+
+## 8. Create tests/test_reporting.py for CSV, PDFs, mosaics, and QA flags [pending]
+### Dependencies: 9.2, 9.3, 9.4, 9.5, 9.6, 9.7
+### Description: Add a dedicated pytest module that exercises the reporting pipeline end-to-end using temporary directories and small synthetic metrics_rows.
+### Details:
+Create tests/test_reporting.py that builds minimal yet representative metrics_rows covering multiple environments and QA cases, then invokes build_reports with tmp_path as output_dir. Assert that metrics.csv exists with the expected columns and schema, that mosaic PNGs and per-env PDFs are created and non-empty, and that the master PDF is present. Use PyPDF2 or ReportLab utilities to inspect PDFs for the presence of key strings like environment names and flag labels. Where practical, validate that QA flags appear in CSV and at least one PDF, and that no unhandled exceptions occur when stacked package metadata is present or absent.
+
+## 9. Extend smoke tests and documentation to cover reporting pipeline usage and CI integration [pending]
+### Dependencies: 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8
+### Description: Update smoke_test.py and project docs to demonstrate invoking build_reports and describe how reporting artifacts fit into the workflow and CI.
+### Details:
+Modify scripts/smoke_test.py to generate a tiny synthetic metrics_rows dataset (or reuse existing stats outputs), call build_reports into a temporary or configured output directory, and log locations of the CSV and PDF artifacts as part of the smoke run. Update documentation files such as docs/WORKFLOW.md and docs/CODEX_RUNBOOK.md to describe the reporting step, including expected inputs, CLI invocation patterns (e.g., from the main pipeline script or notebook), output directory structure, and how CI jobs should collect and publish the CSV and PDF artifacts. Ensure the docs reference PALETTES and QA flag semantics so users understand how to interpret the reports.
+

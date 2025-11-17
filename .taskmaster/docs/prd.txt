@@ -45,6 +45,8 @@ Braided: multi-threads → mid-channel bars (~4–5× width) → chutes → floo
 
 Anastomosing: narrow/stable channels → levees → wetland floodbasins → crevasse-splay fans.
 
+Stacked channel packages: multiple vertically stacked channel belts with explicit erosional boundaries. Each package records its generator style (meander/braided/anasto), thickness, and erosion depth. Packages cut down into previous deposits according to slider-controlled relief and produce boundary masks required by stats/reporting. Interactive previews and orchestration must support toggling between “single belt” and “stacked stratigraphy” modes without duplicating the workflow.
+
 Why: Geological plausibility and professor-verifiable sequencing.
 
 How: Each sub-step is a named function with docstrings mapping Geologic Principle → Code. Outputs include gray (analysis) and masks (per facies), then color via fixed palettes + universal legends.
@@ -72,6 +74,9 @@ Slider defaults validated against `research-documents/` sources:
 | Anastomosing | Branch count | [2, 6] | 4 | `depositional_system_fluvial_anastomosing-river.pdf` §2.1 |
 | Anastomosing | Marsh fraction | [0.2, 0.7] | 0.45 | ibid. §2.3 |
 | Anastomosing | Fan length (px) | [15, 60] px | 30 px | ibid. fig. 6 |
+| Fluvial (stacked) | Package count | [1, 4] | 2 | `depositional_environments_overview.pdf` §4.1 |
+| Fluvial (stacked) | Package env mix (enum) | {meander/braided/anasto combos} | [meander, braided] | ibid. fig. 11 |
+| Fluvial (stacked) | Erosional relief (px) | [4, 25] px | 12 px | ibid. §4.3 |
 | All | Random seed | [0, 2^31 − 1] | 42 | reproducibility requirement |
 
 F3. Full Statistics (v20 complete)
@@ -149,6 +154,7 @@ Metrics shown next to preview; big numbers (β, D, H) for quick validation.
 4.1 Modules
 src/
   geologic_generators.py    # meandering/braided/anasto sub-steps, masks, palettes
+  stacked_channels.py       # package sequencing + erosional boundary modeling
   interactive.py            # ipywidgets panels, sequential renderer, param-batch saver
   stats.py                  # isotropic/directional variograms, two-seg fit, entropy, PSD, topology, wrappers
   reporting.py              # CSV writer, mosaics, per-env PDF, master PDF
@@ -194,6 +200,8 @@ Phase A — Baseline Generators & Docs
 Implement meandering/braided/anasto sub-functions by sequencing with masks.
 
 Add fixed palettes + legend.
+
+Add stacked-channel package builder with erosional surface masks + metadata.
 
 Write GEOLOGIC_RULES.md + notebook anchors.
 

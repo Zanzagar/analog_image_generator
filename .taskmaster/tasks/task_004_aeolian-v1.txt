@@ -1,0 +1,70 @@
+# Task ID: 4
+# Title: Implement Transverse dune generator with λ=f(H) spacing
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Produce transverse dune fields whose crest spacing scales linearly with dune height and remain orthogonal to wind direction.
+# Details:
+Create `aeolian_transverse_ridges` that builds crest-parallel ridges via repeated morphological bands aligned perpendicular to θ. Derive spacing λ = k*H (fit from PRD citation) with guard rails for the slider range. Include defect rate adaptation for crest bifurcations and ensure mask labeling for crest/stoss/slipface/interdune. Track crest orientation error vs. θ and spacing residual for stats.
+Pseudo-code:
+```
+def build_transverse_field(params):
+    spacing = params.lambda_px or alpha*params.H
+    crest_mask = draw_parallel_ridges(spacing, orientation=theta+90)
+    slipface = downwind_projection(crest_mask)
+    return crest_mask, slipface, build_gray(...)
+```
+Update GEOLOGIC_RULES anchors referencing `aeolian_make_crests` usage in transverse context.
+
+# Test Strategy:
+Add pytest cases verifying (a) |θ_PSD − θ_wind| ≤ 15° median across seeds, (b) measured spacing falls within ±10% of λ input, and (c) ridge continuity sits between 0.4–0.6 as specified.
+
+# Subtasks:
+## 1. Define build_transverse_field / aeolian_transverse_ridges API and stubs [pending]
+### Dependencies: None
+### Description: Design and add the public-facing transverse dune generator entry points wired to AeolianParams.
+### Details:
+Specify the function signatures for `build_transverse_field(params: AeolianParams)` and any thin wrapper like `aeolian_transverse_ridges(params)` in `src/analog_image_generator/geologic_generators.py`, matching existing aeolian generator patterns. Ensure they accept the full AeolianParams object, return `(gray, masks_dict, metrics_dict)` or whatever convention Task 1/2 established, and register the new style with any aeolian dispatch utilities. Add TODO comments or basic docstrings indicating that spacing, masks, metrics, and defect logic will be implemented in later subtasks.
+
+## 2. Implement λ = k * H spacing logic with slider guards and overrides [pending]
+### Dependencies: 4.1
+### Description: Encode the transverse crest spacing rule λ = k * H with guard rails and lambda_px overrides.
+### Details:
+Implement a helper (e.g., `compute_transverse_spacing(params)`) inside `geologic_generators.py` that computes crest spacing in pixels using `lambda_px = params.lambda_px if params.lambda_px is not None else k * params.H`. Fit or hard-code the initial k value based on PRD and `research-documents/depositional_system_aeolian_transverse-dune.pdf`, and enforce PRD-constrained min/max bounds on both H and λ. Ensure the helper clamps spacing to safe pixel ranges for the current grid size, logs or records any clamping, and returns both target λ and the raw k-derived value for metrics. Wire this into `build_transverse_field` so spacing is always computed via this function.
+
+## 3. Generate crest-parallel ridges orthogonal to wind direction [pending]
+### Dependencies: 4.1, 4.2
+### Description: Create crest masks as repeated ridges aligned perpendicular to params.theta_deg using bands or distance patterns.
+### Details:
+Within `build_transverse_field`, implement logic (or reuse `aeolian_make_crests` patterns) to synthesize a binary crest mask composed of approximately parallel ridges. Use the wind direction `params.theta_deg` and generate crests orthogonal to wind by orienting bands at `theta_deg + 90°`, accounting for angle normalization. Implement ridge spacing using the output of `compute_transverse_spacing`, via repeated morphological bands or distance transform stripes, ensuring coverage across the domain and avoiding aliasing at edges. Return a stable `crest_mask` array that is compatible with downstream slipface/stoss/interdune derivations.
+
+## 4. Derive slipface, stoss, and interdune masks from crest geometry and wind [pending]
+### Dependencies: 4.3
+### Description: Compute slipface, stoss, and interdune masks from crest positions and wind direction, integrating them into masks_dict.
+### Details:
+Using the `crest_mask` and `params.theta_deg`, implement morphological operations that partition space into crest, stoss, slipface, and interdune regions. Follow conventions from barchan/linear helpers where possible (e.g., projecting downwind from crests for slipfaces, upwind for stoss, and classifying remaining areas as interdune with optional thickness limits). Ensure output masks share consistent shapes and data types, respect domain boundaries, and can be combined into a coherent `masks_dict` whose keys and semantics align with Aeolian entries in `docs/GEOLOGIC_RULES.md` and `docs/PALETTES.md`. Return both the masks and an updated grayscale field that visually encodes these states.
+
+## 5. Incorporate defect_rate to generate crest bifurcations and continuity metrics [pending]
+### Dependencies: 4.3, 4.4
+### Description: Use defect_rate to introduce crest bifurcations, gaps, and realistic continuity while keeping transverse character intact.
+### Details:
+Extend the crest generation stage to use `params.defect_rate` to stochastically break, bifurcate, or locally offset ridge segments, producing realistic defect structures without destroying the overall transverse pattern. Implement algorithms such as randomly deleting segments along ridges, locally splitting crests into branches, or jittering ridge trajectories, with probabilities governed by defect_rate. Compute a crest continuity metric (e.g., size of largest connected crest component divided by total crest pixels) for transverse fields, target a nominal 0.4–0.6 range, and expose this metric alongside masks for later stats and tests.
+
+## 6. Compute crest orientation error and spacing residual metrics [pending]
+### Dependencies: 4.2, 4.3, 4.5
+### Description: Measure crest orientation error vs wind direction and spacing residuals for later statistical pipelines.
+### Details:
+Add metric computation within `build_transverse_field` (or a dedicated metrics helper) that calculates (a) crest orientation error as the absolute difference between the dominant crest orientation inferred from the crest mask PSD and the ideal `theta_deg + 90°`, and (b) spacing residuals as fractional deviation between measured crest spacing and the target λ from `compute_transverse_spacing`. Aggregate these metrics across the domain (e.g., median orientation error across seeds, mean/median spacing residual) and store them in the metrics_dict returned from the generator so higher-level stats pipelines can consume them.
+
+## 7. Align masks, palettes, and GEOLOGIC_RULES / notebook anchors for transverse dunes [pending]
+### Dependencies: 4.1, 4.4, 4.6
+### Description: Update documentation anchors and palette mappings so transverse outputs match Aeolian mask conventions and geologic principles.
+### Details:
+Review `docs/GEOLOGIC_RULES.md` and `docs/PALETTES.md` to identify existing Aeolian mask keys and color assignments, then ensure the transverse generator uses exactly the same key names and semantics for crest, stoss, slipface, and interdune. Add or update GEOLOGIC_RULES entries to reference `analog_image_generator.geologic_generators.build_transverse_field` (or equivalent) with clear description of the λ = k * H rule and defect_rate behavior. Update the appropriate notebook markdown cell in `notebooks/aeolian.ipynb` with a new anchor ID like `anchor-aeolian-transverse` referencing the code-level anchor, keeping anchor formats consistent with project conventions.
+
+## 8. Add tests/test_transverse_generator.py for PSD, spacing, and continuity validation [pending]
+### Dependencies: 4.2, 4.3, 4.5, 4.6, 4.7
+### Description: Create a dedicated pytest module that validates orientation error, spacing residuals, and continuity ranges across seeded runs.
+### Details:
+Introduce `tests/test_transverse_generator.py` that constructs AeolianParams for transverse dunes with representative values of H, lambda_px (set and unset), theta_deg, and defect_rate, then calls `build_transverse_field`. Implement tests that (a) estimate PSD-based crest orientation and assert median |θ_PSD − (theta_deg + 90°)| ≤ 15°, (b) measure crest spacing from the crest mask and confirm average spacing lies within ±10% of the target λ, and (c) compute crest continuity metrics to ensure they fall within the desired 0.4–0.6 band for default parameters. Use deterministic seeds and small grids for performance, borrowing helper utilities from existing aeolian tests where available.
+

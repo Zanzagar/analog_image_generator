@@ -1,0 +1,76 @@
+# Task ID: 7
+# Title: Implement aeolian sliders, previews, and batch exporter
+# Status: pending
+# Dependencies: 1, 6
+# Priority: medium
+# Description: Extend `interactive.py` to expose aeolian slider metadata, render sequential previews, and run batch parameter sweeps for N realizations.
+# Details:
+Populate `build_sliders("aeolian")` returning slider definitions using PRD ranges/defaults and cite sources in docstrings. For `preview_sequence`, call `generate_aeolian` for each intermediate stage (base/ridges/slipfaces/interdunes/gray/facies), capturing matplotlib frames or ipywidgets outputs. Add a batch-export helper to iterate seeds/param combos, storing metrics snapshots in `outputs/aeolian/<timestamp>/`. Ensure UI reacts immediately when sliders change (ipywidgets observe) and integrate into notebooks.
+Pseudo-code:
+```
+def build_sliders(env):
+    if env == "aeolian":
+        return {
+            "theta_deg": {"min":0,"max":180,"step":5,"default":60},
+            ...
+        }
+
+def preview_sequence(env, params, seeds):
+    for seed in seeds:
+        frames = compute_stages(generate_aeolian({...}))
+        show(frames)
+```
+Document sequential preview order per PRD and ensure `docs/WORKFLOW.md` references new batch exporter toggle.
+
+# Test Strategy:
+Write widget/unit tests using `ipywidgets` test utilities verifying slider defaults match PRD table, preview call order matches stage list, and batch exporter writes expected number of realizations with distinct seeds. Smoke-test via `scripts/smoke_test.py` extension for aeolian env.
+
+# Subtasks:
+## 1. Review PRD/AGENTS and define Aeolian slider schema [pending]
+### Dependencies: None
+### Description: Review PRD, AGENTS.md, and AeolianParams to list all aeolian-controllable parameters and their ranges/defaults, then design the slider metadata structure for env == "aeolian".
+### Details:
+Open PRD and AGENTS.md plus the AeolianParams definition to enumerate all aeolian parameters that should be exposed as sliders (e.g., theta_deg, dune_height_px, defect_rate, package_count, erosional_relief_px). For each, record min/max/step/default values from the requirements and confirm units. Compare the existing slider metadata pattern for other environments (e.g., fluvial) in interactive.py or related modules, and define a consistent schema for aeolian slider entries, including keys like min, max, step, default, description, and possibly group/category metadata. Capture any citations or rationale needed for docstrings so later implementation can reference the correct sources.
+
+## 2. Implement build_sliders("aeolian") based on AeolianParams and PRD ranges [pending]
+### Dependencies: 7.1
+### Description: Extend src/analog_image_generator/interactive.py so build_sliders("aeolian") returns a complete slider metadata dict using PRD/AGENTS ranges and AeolianParams defaults, including source citations in docstrings.
+### Details:
+In interactive.py, implement the aeolian branch of build_sliders(env) so that when env == "aeolian" it constructs and returns an ordered dict mapping each AeolianParams field to a slider config. Each config should include at least min, max, step, default, and a helpful label/description, pulling numeric ranges and defaults directly from PRD and AGENTS.md where defined. Ensure that defaults stay in sync with AeolianParams dataclass defaults to avoid divergence. Add or update docstrings to describe aeolian slider semantics and include short citations or anchor IDs to PRD/GEOLOGIC_RULES as required by project conventions. Keep the structure compatible with existing or planned slider consumers so downstream UI code can treat aeolian exactly like other envs.
+
+## 3. Implement aeolian preview_sequence with staged outputs [pending]
+### Dependencies: 7.1, 7.2
+### Description: Implement preview_sequence for env == "aeolian" to call generate_aeolian and capture sequential stages (base, ridges, slipfaces, interdunes, gray, facies) as matplotlib or ipywidgets frames for each seed.
+### Details:
+In interactive.py, extend preview_sequence(env, params, seeds) so that when env == "aeolian" it orchestrates multi-stage previews. For each seed, call generate_aeolian (from the aeolian pipeline composed in Task 6) with the appropriate AeolianParams constructed from current slider values, and obtain either intermediate snapshots or reconstruct them from returned outputs. Ensure that the stages are produced and recorded in the exact order base → ridges → slipfaces → interdunes → gray → facies as specified. Wrap each stage in a consistent frame representation (e.g., matplotlib Figure objects, or ipywidgets Image/Output widgets) and return a structure that the UI and notebooks can iterate over. Handle multiple seeds by either concatenating or clearly grouping frames per seed to support both single-seed preview and small ensembles.
+
+## 4. Add aeolian batch-export helper for seeds and parameter sweeps [pending]
+### Dependencies: 7.2, 7.3
+### Description: Create a batch-export helper in interactive.py that iterates over seeds and aeolian parameter combinations, calls generate_aeolian and stats.compute_metrics, and writes outputs under outputs/aeolian/<timestamp>/.
+### Details:
+Implement a function (e.g., run_aeolian_batch or export_aeolian_batch) that accepts a base AeolianParams configuration, a list or grid of parameter overrides, and a list of seeds. For each combination of seed and parameter set, call generate_aeolian to obtain gray images and masks_dict, then call stats.compute_metrics to compute aeolian metrics snapshots. Save outputs into a timestamped directory like outputs/aeolian/<ISO-timestamp>/, organizing per run using informative filenames that encode seed and parameter index. Persist metrics in a CSV (or multiple CSVs) and, if appropriate, small preview images or npz files for regression. Ensure that the helper integrates cleanly with existing project conventions and does not hard-code notebook-specific behavior, but instead can be triggered from both CLI/notebooks and ipywidgets buttons.
+
+## 5. Design reusable hooks for notebooks to consume aeolian previews and batches [pending]
+### Dependencies: 7.2, 7.3, 7.4
+### Description: Refactor or add helper functions so notebooks can embed aeolian preview sequences and batch runs via simple calls without duplicating interactive logic.
+### Details:
+Identify the core pure operations behind aeolian previews and batch exports—such as building AeolianParams from slider or dict-like input, computing preview frames, and running batch sweeps—and extract them into reusable functions within interactive.py or a small companion module. Provide thin, well-documented hooks like get_aeolian_preview_frames(params, seeds) and run_aeolian_batch_jobs(params_grid, seeds) that encapsulate the orchestration but remain UI-agnostic. Ensure that ipywidgets-facing functions call into these hooks rather than reimplementing logic, so Jupyter notebooks can import and reuse the same functionality directly. This design should minimize duplication and make it easy to test preview and batch behavior headlessly.
+
+## 6. Wire ipywidgets-based aeolian UI with responsive observers [pending]
+### Dependencies: 7.2, 7.3, 7.5
+### Description: Implement or extend ipywidgets widgets and observers so aeolian sliders trigger efficient recomputation of previews and batch-export toggles, ensuring the UI feels responsive in notebooks.
+### Details:
+Using ipywidgets (and any existing fluvial UI patterns), construct slider widgets for each aeolian parameter based on build_sliders("aeolian") metadata. Register observe or traitlets callbacks so that when a slider value changes, the underlying AeolianParams are updated and preview_sequence("aeolian", ...) is recomputed in a throttled or debounced manner to avoid excessive recomputation. Wire a batch export button or toggle that invokes the aeolian batch-export helper using the current slider state and seed configuration, giving the user clear feedback about progress and output locations. Ensure the implementation keeps expensive work off the main thread where possible (or at least avoids redundant reruns) and that UI state (selected env, seeds, modes) stays coherent as sliders change.
+
+## 7. Document aeolian sliders, preview order, and batch exporter in docs and notebooks [pending]
+### Dependencies: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+### Description: Update docs/WORKFLOW.md and the aeolian notebook to describe aeolian slider semantics, the sequential preview order, and how to use the new batch exporter, aligning with GEOLOGIC_RULES anchors.
+### Details:
+Edit docs/WORKFLOW.md to add or extend sections covering the aeolian environment: describe each slider, including parameter meaning, units, valid ranges, and defaults, and reference the corresponding GEOLOGIC_RULES and notebook anchors as required by the anchoring discipline. Explicitly document the sequential preview order (base → ridges → slipfaces → interdunes → gray → facies) and link it to the aeolian generator pipeline in generate_aeolian. Add or update the aeolian-focused Jupyter notebook to show usage examples for building sliders, running previews, and triggering batch exports, ensuring that anchor IDs follow the anchor-<env>-<principle> pattern and reference the fully qualified code symbols used for aeolian interactive functions. Verify that documentation stays in sync with the implemented APIs and that any UI screenshots or descriptions reflect the current behavior.
+
+## 8. Add tests for aeolian interactive sliders, previews, and batch export [pending]
+### Dependencies: 7.2, 7.3, 7.4, 7.5, 7.6, 7.7
+### Description: Create tests (e.g., tests/test_interactive_aeolian.py) to verify aeolian slider defaults, preview call ordering, and batch-export output counts, plus basic widget behavior where feasible.
+### Details:
+Introduce a dedicated test module, such as tests/test_interactive_aeolian.py, focusing on the interactive layer for the aeolian environment. Add tests for build_sliders("aeolian") that validate coverage and correctness of min/max/step/default values relative to AeolianParams and PRD. Implement tests for preview_sequence("aeolian") that use mocks to ensure generate_aeolian is called for each seed and that the returned stages follow the exact required order. Add tests for the batch-export helper that run against a temporary directory and verify that the expected number of files and metrics rows are created for a small sweep. Where practical, include basic ipywidgets tests to confirm that changing slider values or pressing a batch-export button triggers the right internal calls. Ensure tests run under the existing CI configuration and extend any smoke-test scripts (e.g., scripts/smoke_test.py) with an aeolian interactive check if appropriate.
+

@@ -1,0 +1,47 @@
+# Task ID: 6
+# Title: Implement Phase 1 metrics within `stats.compute_metrics`
+# Status: pending
+# Dependencies: 4
+# Priority: medium
+# Description: Extend the statistics module to compute the baseline Phase 1 metrics (β_iso, β_dir*, anisotropy ratio, two-segment parameters) for estuarine outputs so quick metrics and reporting have consistent values.
+# Details:
+- In `analog_image_generator.stats.compute_metrics`, add FFT/variogram utilities that take grayscale/masks and compute isotropic variograms `β_iso`, directional variograms at 0/45/90/135°, anisotropy ratio, and two-line fit parameters `(β₁, β₂, h₀)`.
+- Accept an `env` argument and branch for `"estuarine"` to include channel/bar masks in weighting.
+- Cache metrics inside the returned dict along with provenance (window size, lag step) for reproducibility.
+- Provide helper functions (e.g., `_variogram(field, theta_deg)`) to keep compute_metrics readable.
+- Pseudocode outline:
+```
+def compute_metrics(gray, masks, env):
+    metrics = {}
+    beta_iso = variogram(gray)
+    beta_dirs = {theta: variogram(gray, theta) for theta in [0,45,90,135]}
+    metrics.update({...})
+    metrics.update(two_segment_fit(beta_iso))
+    return metrics
+```
+- Ensure metrics can run on downsampled frames for speed when called from quick metrics mode (Task 5).
+
+# Test Strategy:
+- Unit tests using analytic fields (e.g., linear gradients, sinusoidal textures) where expected variogram/anisotropy values are known, verifying results within tolerance.
+- Regression tests to ensure compute time stays within limits (pytest mark for performance) and that repeated calls with identical inputs yield identical metrics.
+- Validate quick-metric subset agrees with the full compute by comparing truncated and full runs in tests.
+
+# Subtasks:
+## 1. Implement core variogram and anisotropy utilities for Phase 1 metrics [pending]
+### Dependencies: None
+### Description: Create reusable FFT/variogram helpers to compute isotropic and directional variograms plus anisotropy ratios from grayscale estuarine frames.
+### Details:
+Add internal helpers in the stats module (e.g., `_variogram(field, theta_deg=None, mask=None, max_lag_px=None, lag_step_px=1, use_fft=True)` and `_compute_anisotropy_ratio(beta_dirs)`) that take grayscale images and optional channel/bar masks and return lag distances with corresponding semivariance curves. Ensure support for isotropic variograms (theta_deg=None) and directional variograms at specified angles, correct handling of NaNs and masked pixels, and stable numerical behavior for small and large images. Document arguments and return types so `compute_metrics` can easily consume these utilities for Phase 1 metrics.
+
+## 2. Extend `stats.compute_metrics` to compute Phase 1 variogram-based metrics for `env="estuarine"` [pending]
+### Dependencies: None
+### Description: Wire the new variogram utilities into `stats.compute_metrics` so β_iso, β_dir* and anisotropy ratio are computed for estuarine outputs using grayscale and masks.
+### Details:
+Modify `analog_image_generator.stats.compute_metrics` to accept an `env` argument (if not already present) and add a dedicated branch for `env == "estuarine"` that calls the new variogram helpers on the grayscale frame, producing β_iso and directional variograms at 0, 45, 90, and 135 degrees. Combine channel and bar masks from the `masks` dict to weight variogram computations appropriately, then compute anisotropy ratios and collate all Phase 1 scalar metrics into the returned metrics dictionary using stable, well-documented key names. Preserve existing behavior for non-estuarine environments and keep the main function readable by delegating computation details to helpers.
+
+## 3. Add two-segment fit, provenance caching, and quick-metrics downsampling in `compute_metrics` [pending]
+### Dependencies: None
+### Description: Fit two-segment parameters to β_iso, cache Phase 1 metric provenance in the metrics dict, and support an optional downsampled quick-metrics path.
+### Details:
+Implement a helper such as `_two_segment_fit(beta_iso, lags)` that returns `(beta1, beta2, h0)` for the isotropic variogram, and call it from the estuarine branch of `compute_metrics`, storing the fitted parameters alongside the core Phase 1 metrics. Extend the metrics dictionary to cache provenance fields like window size, lag step, downsample factor (if applicable), and any key mask names used so results are reproducible. Add an optional argument or mode flag (e.g., `quick=True` or `downsample_factor`) that runs the Phase 1 computations on a downsampled version of the grayscale and masks for speed, while clearly recording this in the provenance fields so downstream quick-metrics and reporting can interpret the results consistently.
+

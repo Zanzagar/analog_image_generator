@@ -1,0 +1,80 @@
+# Task ID: 2
+# Title: Build Barchan dune generator with crest/slipface/interdune masks
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Implement horned barchan synthesis driven by wind azimuth, including mask outputs for crest, slipface, stoss, and interdune plus migration metadata.
+# Details:
+Add helpers (`aeolian_make_crests`, `aeolian_add_slipfaces`, `aeolian_interdune`) that construct horn seeds, advect dunes downwind, and carve interdune lows via distance transforms using params from Task 1. Compose masks dict with grayscale shading and palette keys per `docs/PALETTES.md`. Capture horn curvature vs. θ and record interdune fraction for metrics.
+Pseudo-code:
+```
+def build_barchan_field(params):
+    centerline = bezier(seed_points(params.seed))
+    horns = dilate(centerline, horn_width(theta))
+    slipface = project_downwind(horns, params.theta_deg)
+    interdune = threshold(base_field, params.f_interdune)
+    return {
+        "gray": blend_layers(...),
+        "masks": {"crest": crest_mask, "slipface": slipface, ...}
+    }
+```
+Annotate GEOLOGIC_RULES rows for crest/slipface/interdune anchors once implemented.
+
+# Test Strategy:
+Create `tests/test_barchan_generator.py` to assert (a) crest orientation aligns with θ within 15°, (b) ridge continuity index falls in 0.3–0.5 band, and (c) interdune connectivity stays between 0.2–0.6. Use seeded params and measure via numpy morphology helpers.
+
+# Subtasks:
+## 1. Design barchan builder API and AeolianParams integration [pending]
+### Dependencies: None
+### Description: Define a clear Python API for a barchan-specific field builder that consumes AeolianParams and base-field helpers from Task 1 in geologic_generators.py.
+### Details:
+Add a function such as analog_image_generator.geologic_generators.build_barchan_field(params: AeolianParams, rng=None) that returns (gray, masks_dict, metadata). Reuse or wrap the base-field and wind-azimuth utilities from Task 1 rather than duplicating logic. Document expected params (grid size, theta_deg, horn spacing, dune height scale, interdune fraction, seed, etc.) in the function docstring and ensure names align with Task 1 schema and docs/GEOLOGIC_RULES.md aeolian rows. Decide on mask keys ('crest','slipface','stoss','interdune') and metadata structure so later stats/reporting tasks can rely on a stable contract.
+
+## 2. Implement aeolian_make_crests to seed horned barchan crests [pending]
+### Dependencies: 2.1
+### Description: Create aeolian_make_crests to construct horned barchan crest seeds consistent with GEOLOGIC_RULES and reference PDF.
+### Details:
+In geologic_generators.py, implement aeolian_make_crests(base_field, params, rng) that lays out crescent-shaped crest seeds aligned with the incoming wind direction. Use seed points derived from grid dimensions, spacing controls, and params.seed, then trace crescent centerlines using simple Bezier or spline curves. Ensure horn orientation and aspect ratios match qualitative rules in docs/GEOLOGIC_RULES.md and research-documents/depositional_system_aeolian_barchan-dune.pdf (e.g., lee side downwind, horns pointing downwind). Output a binary or float mask for initial crests plus any intermediate centerline representation needed by downstream horn-growth logic.
+
+## 3. Implement horn growth and downwind migration operations [pending]
+### Dependencies: 2.2
+### Description: Grow barchan horns from crest seeds and advect dunes downwind using geometric and morphological primitives.
+### Details:
+Using the crest seeds and centerlines from aeolian_make_crests, implement horn growth as a series of dilations and directional thickening operations that extend horns outward from the central slipface. Represent centerlines with Bezier paths or parametric curves to control curvature vs. theta_deg, then rasterize these curves into masks. Apply downwind migration by translating or shearing dune bodies along the wind azimuth, updating both crest and stoss regions. Use numpy and scipy.ndimage (or equivalent) for dilation, distance transforms, and rotations while keeping operations deterministic for a given seed.
+
+## 4. Implement aeolian_add_slipfaces to project lee-side slipfaces [pending]
+### Dependencies: 2.2, 2.3
+### Description: Add aeolian_add_slipfaces to construct slipface masks lee of the wind based on grown horns and crest positions.
+### Details:
+Define aeolian_add_slipfaces(crest_mask, horn_mask, params) that projects slipfaces downwind from the crest line, filling in a lee-side wedge consistent with barchan geometry. Use the wind azimuth (theta_deg) to orient the slipface region, e.g., by computing a normal vector and offsetting pixels downwind with tapering thickness. Enforce that slipfaces attach smoothly to crests and horns without gaps, and keep a complementary stoss mask that occupies the upwind side of each dune. Ensure these slipface and stoss masks respect pixel-level exclusivity rules described in docs/GEOLOGIC_RULES.md for aeolian facies.
+
+## 5. Implement aeolian_interdune to carve interdune corridors [pending]
+### Dependencies: 2.3, 2.4
+### Description: Create aeolian_interdune to carve interdune lows and corridors using distance transforms or morphology while controlling interdune fraction.
+### Details:
+Implement aeolian_interdune(dune_body_mask, params) that uses distance transforms, erosion, or skeletonization to identify saddle regions between dunes and carve interdune corridors. Use params.f_interdune and any spacing controls from Task 1 to threshold the distance field, targeting a configurable global interdune area fraction. Orient corridors broadly along or across wind as dictated by GEOLOGIC_RULES for barchan fields. Return an interdune binary mask that is mostly disjoint from dune bodies and that exposes knobs to tune corridor width and connectivity for later metrics.
+
+## 6. Compose grayscale shading and masks dict aligned with palettes [pending]
+### Dependencies: 2.1, 2.4, 2.5
+### Description: Combine crest, slipface, stoss, and interdune masks into grayscale shading and a masks dict with keys aligned to PALETTES and GEOLOGIC_RULES anchors.
+### Details:
+Inside build_barchan_field, blend base topography, dune height fields, and mask information into a single grayscale image that encodes relative elevation or facies intensity. Construct a masks dict with keys exactly matching docs/PALETTES.md and GEOLOGIC_RULES.md for aeolian barchan entries, including at minimum 'crest', 'slipface', 'stoss', and 'interdune'. Ensure masks are mutually consistent (no unexpected overlaps unless explicitly allowed), normalized to boolean or {0,1} dtype, and that grayscale shading assigns visually distinct tonal ranges for each facies when mapped through the palette. Update GEOLOGIC_RULES anchors to reference build_barchan_field and these mask keys once behavior is stable.
+
+## 7. Capture horn curvature and interdune fraction as generator metadata [pending]
+### Dependencies: 2.3, 2.5, 2.6
+### Description: Compute horn curvature vs wind direction and interdune fraction metrics and attach them as structured metadata.
+### Details:
+Extend build_barchan_field to compute quantitative horn curvature metrics (e.g., mean curvature of horn centerlines, curvature at horn tips) and compare their orientation to the wind azimuth theta_deg. Measure interdune fraction as the ratio of interdune pixels to the total active aeolian area, and optionally include connectivity statistics such as the size of the largest interdune component. Package these values into a metadata dict (e.g., metadata['horn_curvature_vs_theta'], metadata['interdune_fraction'], metadata['interdune_connectivity']) returned alongside gray and masks. Ensure field names and units are documented for later use in stats.py and reporting tasks.
+
+## 8. Integrate barchan builder with generate_aeolian entry points [pending]
+### Dependencies: 2.1, 2.6, 2.7
+### Description: Wire the new barchan generator into generate_aeolian or a dedicated entry function so the environment can request barchan fields by mode.
+### Details:
+Update geologic_generators.py (and any higher-level factory such as generate_aeolian) to call build_barchan_field when params.env=='aeolian' and params.dune_style or similar indicates 'barchan'. Ensure the integration path respects existing interfaces by returning (gray, masks, metadata) in the expected shape and by passing through AeolianParams from Task 1 without re-validation boilerplate. If needed, add a barchan-specific wrapper like generate_barchan_aeolian that is used by interactive notebooks and scripts, and ensure GEOLOGIC_RULES and notebook anchors reference this function for the barchan environment rows.
+
+## 9. Add tests/test_barchan_generator.py for orientation and connectivity [pending]
+### Dependencies: 2.2, 2.3, 2.5, 2.6, 2.7, 2.8
+### Description: Create a dedicated pytest module that validates barchan generator orientation, ridge continuity bands, and interdune connectivity using seeded runs.
+### Details:
+Add tests/test_barchan_generator.py that constructs one or more AeolianParams fixtures with fixed seeds and theta_deg values, runs the full barchan generation path, and computes geometric diagnostics using numpy/scipy morphology helpers. Implement checks that (a) crest orientation aligns with theta_deg within about 15°, e.g., via FFT-based orientation or structure tensor analysis, (b) a ridge continuity index (largest crest component area divided by total crest area) falls within the 0.3–0.5 band for default barchan parameters, and (c) interdune connectivity, measured as the largest interdune component area divided by total interdune area or 1−χ/A, lies between 0.2 and 0.6. Keep tests deterministic by seeding RNG and keep grids small enough for fast execution.
+

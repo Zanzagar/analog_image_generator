@@ -1,0 +1,83 @@
+# Task ID: 2
+# Title: Implement meandering generator sequencing
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Fill `generate_fluvial` path for meandering belts with named sub-functions and masks following PRD hierarchy.
+# Details:
+- Inside `geologic_generators.py`, add orchestrator `generate_meandering(params, rng)` returning `(gray, masks)` per spec.
+- Sub-functions with docstrings referencing principles: `meander_centerline(control_pts, amplitude_mult)`, `bankfull_width_profile(w0, w1)`, `rasterize_belt(centerline, width)`, `build_levees(belt_mask, thickness_px)`, `apply_scrollbar_bands(belt_mask)`, `spawn_oxbows(centerline, prob)`.
+- Compose grayscale `float32` field with levee/scroll textures + floodplain noise.
+- Masks dict keys: `{"channel", "levee", "scroll_bar", "oxbow", "floodplain"}`.
+- Parameter validation ensures slider defaults match table (amplitude multiplier range etc.).
+- Update `docs/GEOLOGIC_RULES.md` entry + notebook anchor referencing fully qualified function names.
+- Example pseudo inside orchestrator:
+```
+centerline = meander_centerline(params, rng)
+belt = rasterize_belt(centerline, width_profile)
+levees = gaussian_filter(belt.astype(float), sigma=thickness)
+scroll = generate_scroll_texture(belt)
+gray = normalize(belt*0.7 + levees*0.2 + scroll*0.1)
+```
+- Return grayscale + mask dict along with metadata (sinuosity, levee thickness) for stats pipeline.
+
+# Test Strategy:
+- Write `tests/test_meandering.py` verifying mask coverage sums to expected percentage bands and that oxbow count aligns with probability distribution via seeded RNG.
+- Add lightweight visualization smoke in `tests/data/fixtures` comparing outputs against stored histograms (use numpy assertions, not image diffs).
+- Extend `scripts/smoke_test.py` to call `generate_meandering` with canonical params and confirm shapes + dtype.
+
+# Subtasks:
+## 1. Standardize NDArray types and shared fluvial mask structures [pending]
+### Dependencies: None
+### Description: Define common numpy dtypes and shared structures for grayscale fields and mask dictionaries used by meandering generators.
+### Details:
+In `src/analog_image_generator/geologic_generators.py` (and utils if needed), choose and document standard NDArray types for gray images (e.g., `np.ndarray` with `dtype=np.float32` and shape `(H, W)`) and for masks (boolean or `uint8`). Define a canonical `MasksDict` type alias (e.g., `Dict[str, np.ndarray]`) with required keys like `"channel"`, `"levee"`, `"scroll_bar"`, `"oxbow"`, and `"floodplain"`. Ensure these conventions are consistent with Task 1 utilities and PALETTES expectations, and update any existing type hints or docstrings in `geologic_generators.py` to reference this standardized structure.
+
+## 2. Implement meander_centerline(H, W, n_ctrl, amp_range, drift_frac) geometry [pending]
+### Dependencies: 2.1
+### Description: Create the meander_centerline function that synthesizes a meandering river centerline from control points and amplitude parameters.
+### Details:
+Implement `meander_centerline(H, W, n_ctrl, amp_range, drift_frac)` in `src/analog_image_generator/geologic_generators.py` consistent with the GEOLOGIC_RULES anchor (fully qualified name) and PRD rules. Use `n_ctrl` spline control points along the downstream axis, sample lateral offsets within `amp_range`, and apply a slow along-stream drift controlled by `drift_frac` to avoid unrealistic high-frequency bends. Return a centerline representation suitable for later rasterization (e.g., arrays of y/x coordinates or an HxW float field). Add a detailed docstring referencing the corresponding principle and anchor ID in `docs/GEOLOGIC_RULES.md` and ensure parameter names align with sliders/PRD.
+
+## 3. Implement variable bankfull width logic using params and seeded RNG [pending]
+### Dependencies: 2.1, 2.2
+### Description: Add bankfull width profile or meander_variable_channel logic that varies channel width along the belt using parameters and RNG.
+### Details:
+Implement a helper such as `bankfull_width_profile(centerline, params, rng)` or `meander_variable_channel(...)` in `geologic_generators.py` that computes a variable width field along the meander centerline based on slider parameters (e.g., min/max width, variation scale) and seeded RNG from `analog_image_generator.utils.seeded_rng`. Use smooth variation (e.g., low-frequency noise or spline interpolation) rather than pixel-to-pixel jitter, and ensure the resulting widths remain within PRD-specified bounds. Reference the appropriate GEOLOGIC_RULES anchor in the docstring and keep the function signature consistent with the planned orchestrator.
+
+## 4. Rasterize centerline and width into channel/belt masks [pending]
+### Dependencies: 2.2, 2.3
+### Description: Convert centerline and variable width outputs into raster channel and belt boolean masks suitable for downstream facies operations.
+### Details:
+Implement rasterization helpers in `geologic_generators.py`, such as `rasterize_channel(centerline, width_profile, H, W)` or `rasterize_belt(...)`, that take the computed geometry and width information and return boolean or `uint8` masks for the active channel and broader belt. Use simple drawing algorithms (e.g., anti-aliased lines plus distance thresholding or distance transform) that are robust across resolutions. Ensure results respect the NDArray conventions from Subtask 1 and are amenable to later levee, scroll-bar, and oxbow operations. Add docstrings that tie these helpers back to GEOLOGIC_RULES and document assumptions about connectivity and belt thickness.
+
+## 5. Implement levee, scroll-bar, and oxbow morphology helpers [pending]
+### Dependencies: 2.4
+### Description: Create helper functions for building levees, scroll bars, and oxbows from belt and channel geometry following geologic principles.
+### Details:
+Add functions such as `add_levees(belt_mask, channel_mask, thickness_px, rng)`, `add_scroll_bars(belt_mask, rng)`, and `add_oxbow(channel_centerline, belt_mask, prob, rng)` in `geologic_generators.py`, each with docstrings referencing their GEOLOGIC_RULES anchors. Levees should be generated as narrow ridges adjacent to the channel using distance transforms; scroll bars as banded textures within the belt interior; and oxbows as cutoff loop masks spawned stochastically based on a probability parameter but made deterministic via seeded RNG. Ensure that these helpers output boolean masks aligned with NDArray standards and that oxbow frequency behaves roughly proportional to the configured probability.
+
+## 6. Compose grayscale float32 field from channel, levees, scroll bars, and floodplain noise [pending]
+### Dependencies: 2.1, 2.4, 2.5
+### Description: Combine masks and textures into a single float32 grayscale image with realistic tonal hierarchy and floodplain noise.
+### Details:
+Implement a composition helper (or logic inside `generate_meandering`) that converts channel, levee, scroll-bar, oxbow, and floodplain masks into a single `float32` grayscale field. Use a tonal scheme where active channels are darkest, levees and scroll bars have intermediate intensities, and floodplain is brighter, then blend in band-limited noise to avoid flat regions. Normalize the final field into a stable range (e.g., [0, 1]) and ensure that it conforms to the standardized dtype and shape. Capture the composition weights and noise parameters in docstrings and, if applicable, in GEOLOGIC_RULES anchors for traceability.
+
+## 7. Define masks dict schema and metadata (sinuosity, levee thickness, labels) [pending]
+### Dependencies: 2.1, 2.4, 2.5, 2.6
+### Description: Finalize the masks dictionary schema and metadata payload for meandering outputs, ensuring consistency with PALETTES and stats pipelines.
+### Details:
+In `geologic_generators.py`, define the canonical masks dictionary returned by `generate_meandering`, including keys `"channel"`, `"levee"`, `"scroll_bar"`, `"oxbow"`, and `"floodplain"`, and ensure each value matches the standardized mask dtype and shape. Compute metadata such as sinuosity (ratio of centerline length to valley length), characteristic levee thickness, and any other required metrics for downstream stats. Cross-check labels against `docs/PALETTES.md` so that mask names align with palette entries, and update `docs/GEOLOGIC_RULES.md` and relevant notebook anchors so code anchors, notebook anchors, and label names are in sync.
+
+## 8. Integrate generate_meandering into generate_fluvial dispatcher with parameter validation [pending]
+### Dependencies: 2.2, 2.3, 2.4, 2.5, 2.6, 2.7
+### Description: Wire generate_meandering into the generate_fluvial path for env='meandering', enforce parameter validation, and respect PRD slider defaults.
+### Details:
+Implement the `generate_meandering(params, rng)` orchestrator in `geologic_generators.py` to call the previously implemented helpers in a clear sequence, returning `(gray, masks, metadata)` or the agreed tuple. Then modify `generate_fluvial` so that when the environment or style indicates a meandering belt, it routes to `generate_meandering` using seeded RNG from Task 1 utilities. Add parameter validation up front (e.g., ranges for amplitude, drift fraction, width bounds, levee thickness, oxbow probability) and raise informative errors when values fall outside PRD-defined limits. Update `docs/GEOLOGIC_RULES.md` and the meandering notebook to reference the fully qualified orchestrator function and ensure anchors follow the `anchor-<env>-<principle>` pattern.
+
+## 9. Create tests/test_meandering.py and smoke fixtures for coverage, oxbow frequency, and anchors [pending]
+### Dependencies: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8
+### Description: Add a dedicated meandering test module and minimal smoke-test wiring to validate coverage bands, oxbow statistics, shapes/dtypes, and anchor updates.
+### Details:
+Create `tests/test_meandering.py` implementing the unit and integration tests described in previous subtasks, plus any shared helpers. Add smoke-test wiring and small fixture generation (e.g., histograms or summary stats stored under `tests/data/fixtures`) that validate overall mask coverage percentages, oxbow occurrence frequency under seeded RNG, and basic grayscale distribution stability. Include tests that indirectly verify GEOLOGIC_RULES and notebook anchor updates by checking for the presence of expected function names or anchor IDs in `docs/GEOLOGIC_RULES.md` and, if feasible, a lightweight JSON export of notebook markdown. Ensure the test suite can run quickly and deterministically.
+

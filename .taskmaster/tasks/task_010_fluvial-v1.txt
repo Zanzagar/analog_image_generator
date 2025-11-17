@@ -1,0 +1,92 @@
+# Task ID: 10
+# Title: Ensure traceability, automation, and Task Master gating
+# Status: pending
+# Dependencies: 2, 3, 4, 5, 6, 7, 8, 9
+# Priority: medium
+# Description: Wire documentation, notebooks, and CI/smoke automation so every principle maps to code and Task Master enforces non-regression.
+# Details:
+- Update `docs/GEOLOGIC_RULES.md` with table rows per new function (generators, stacked, stats, reporting) including notebook anchor IDs; sync anchors inside `notebooks/v20a_interactive_rebuild.ipynb` and `v20_complete_analysis.ipynb` (`anchor-<env>-<principle>` naming) referencing fully qualified code paths.
+- Refresh README + docs (WORKFLOW, TASKMASTER tasks) describing stacked/interactive/stats pipelines and slider sources; add meeting recap entry summarizing professor feedback.
+- Configure Task Master tag tree: parse PRD -> generate tasks -> ensure `.taskmaster/tasks/tasks.json` updated; reference new tasks (IDs) for each milestone.
+- Extend `scripts/smoke_test.py` + CI (GitHub Actions) to execute mini-run (generate 3 envs, compute metrics, build one PDF) and fail on anchor mismatch or reporting errors.
+- Document Task Master gating steps (`task-master analyze-complexity`, `expand`) and add instructions in `docs/CODEX_RUNBOOK.md` for MCP usage.
+- Capture outputs/anchors in meeting recap and ensure non-regression checklist in notebooks is fully ticked programmatically (e.g., cell that asserts all features returning True).
+
+# Test Strategy:
+- Add doc-test automation: script verifying every GEOLOGIC_RULES row has matching notebook anchor + callable attribute; include as pytest test or CLI invoked in CI.
+- Update GitHub Actions workflow to run smoke script + doc-anchor check on pushes; ensure failing run blocks merge.
+- Manual validation: run Task Master commands locally (list/next/expand) ensuring no transport errors, capture logs for QA sign-off.
+
+# Subtasks:
+## 1. Inventory new generator/stacked/stats/reporting functions for GEOLOGIC_RULES mapping [pending]
+### Dependencies: None
+### Description: Scan the codebase to identify all newly added or changed functions in generators, stacked channel packages, statistics, and reporting that must appear in GEOLOGIC_RULES.md with code and notebook anchors.
+### Details:
+Search under src/analog_image_generator (e.g., geologic_generators, stacked_channels, stats, reporting modules) and compile a structured list of fully qualified function names, their purpose, and associated environment/principle labels. Capture this inventory in a temporary markdown or JSON helper file that will drive updates to docs/GEOLOGIC_RULES.md and notebook anchors.
+
+## 2. Update docs/GEOLOGIC_RULES.md with rows and code/notebook anchors for all new functions [pending]
+### Dependencies: 10.1
+### Description: Extend GEOLOGIC_RULES.md so every inventoried function has a table row with fully qualified code anchor and corresponding notebook anchor IDs following the agreed conventions.
+### Details:
+Using the inventory from subtask 1, add or update rows in docs/GEOLOGIC_RULES.md for generators, stacked channel builders, stats, and reporting functions. Ensure each row includes: environment, principle, fully qualified code anchor (e.g., analog_image_generator.geologic_generators.meander_centerline), and one or more notebook anchors using the anchor-<env>-<principle> naming scheme that will be implemented in the v20 notebooks.
+
+## 3. Align notebook markdown anchors in v20 notebooks with GEOLOGIC_RULES conventions [pending]
+### Dependencies: 10.2
+### Description: Update markdown anchor cells in notebooks/v20a_interactive_rebuild.ipynb and v20_complete_analysis.ipynb so they follow the anchor-<env>-<principle> naming pattern and match the GEOLOGIC_RULES code anchor mapping.
+### Details:
+Open notebooks/v20a_interactive_rebuild.ipynb and notebooks/v20_complete_analysis.ipynb, locate existing markdown anchors describing geologic principles, and normalize them to the anchor-<env>-<principle> format referenced from GEOLOGIC_RULES.md. Where needed, add or adjust markdown cells so each principle row in GEOLOGIC_RULES has at least one corresponding notebook anchor, and ensure any old anchor names are updated consistently across links or references in the notebooks.
+
+## 4. Implement doc-anchor validation script for GEOLOGIC_RULES and notebooks [pending]
+### Dependencies: 10.2, 10.3
+### Description: Create or update a validation script that parses GEOLOGIC_RULES.md, resolves each code anchor into a callable object, and verifies that each referenced notebook anchor exists in the v20 notebooks.
+### Details:
+Add a Python script (for example scripts/validate_geo_anchors.py or a tests helper) that reads docs/GEOLOGIC_RULES.md, extracts code anchor FQNs and notebook anchor IDs, imports the corresponding Python objects to ensure they are callable, and inspects notebooks/v20a_interactive_rebuild.ipynb and v20_complete_analysis.ipynb (via nbformat or similar) to confirm all listed anchor IDs are present. The script should emit a clear non-zero exit code and human-readable error messages when anchors are missing or imports fail.
+
+## 5. Extend scripts/smoke_test.py with mini end-to-end run and anchor/report checks [pending]
+### Dependencies: 10.4
+### Description: Augment scripts/smoke_test.py to generate a small set of environments, compute metrics, build at least one PDF report, and assert that no anchor or reporting errors occur during the pipeline.
+### Details:
+Modify scripts/smoke_test.py so it orchestrates a mini pipeline that runs the generators (including stacked mode), computes statistics, and calls the reporting functions to produce a metrics CSV and a minimal set of PDF outputs for three environments. Integrate calls to the doc-anchor validation logic (from subtask 4) within the smoke test so a failure in anchors or reporting raises an exception and causes the smoke run to fail, producing concise diagnostics for CI.
+
+## 6. Integrate doc-anchor validation and smoke test into pytest or a dedicated CLI [pending]
+### Dependencies: 10.4, 10.5
+### Description: Wire the doc-anchor check and mini smoke pipeline into the project’s automated test entry points so they can be invoked by pytest or a small CLI used in CI.
+### Details:
+Either wrap the validate_geo_anchors script and smoke_test logic in pytest-compatible test functions (e.g., tests/test_doc_anchors.py and tests/test_smoke_pipeline.py) or expose them behind a dedicated CLI command such as `python -m analog_image_generator.checks.run_all`. Ensure the chosen approach provides clear test names, sensible exit codes, and configurable options (like skipping PDF generation in constrained environments if necessary).
+
+## 7. Update GitHub Actions workflows to enforce unit, doc-anchor, and smoke gates [pending]
+### Dependencies: 10.6
+### Description: Modify the CI workflows (e.g., .github/workflows/ci.yml) to run unit tests, the doc-anchor validation, and the extended smoke test on pushes and pull requests, causing CI to fail on any regression.
+### Details:
+Edit the existing GitHub Actions workflows or add a dedicated CI job so that each run installs dependencies, executes pytest (or the consolidated checks CLI), and specifically runs the doc-anchor and smoke tests introduced in subtasks 4–6. Ensure jobs are properly ordered, cache usage is reasonable, and any required artifacts (such as generated CSVs or PDFs) are either ignored or uploaded as build artifacts when useful for debugging.
+
+## 8. Refresh README and workflow docs for stacked/interactive/stats/reporting and Task Master usage [pending]
+### Dependencies: 10.7, 10.10, 10.11
+### Description: Update README.md, docs/WORKFLOW.md, docs/TASKMASTER_TASKS_EXPORT.md, and docs/CODEX_RUNBOOK.md so they accurately describe the stacked channel, interactive notebook, statistics, reporting pipelines, and how Task Master is used to drive and gate the workflow.
+### Details:
+Revise the top-level README to include an overview diagram or narrative of the full pipeline from generators through stacked packages, metrics computation, and report generation, highlighting where Task Master fits. In docs/WORKFLOW.md, document the day-to-day development loop, including how to run doc-anchor checks and smoke tests. In docs/TASKMASTER_TASKS_EXPORT.md and docs/CODEX_RUNBOOK.md, explain how tasks are generated from PRDs, how tags map to milestones, how MCP is used from Cursor on WSL, and which commands must pass before merges are approved.
+
+## 9. Add programmatic non-regression checklist cells to v20 notebooks [pending]
+### Dependencies: 10.3
+### Description: Ensure the v20 interactive and analysis notebooks contain a final verification cell that programmatically asserts all major features and checklists are satisfied, and that this cell is used as part of the non-regression signal.
+### Details:
+In notebooks/v20a_interactive_rebuild.ipynb and v20_complete_analysis.ipynb, add or update a final cell that imports a helper function (or directly performs checks) to assert that key features—such as stacked mode, sliders, metrics, and reporting hooks—return True or pass expected invariants. The cell should fail loudly when a feature is broken so that notebook runs clearly reflect non-regression status and can be referenced in GEOLOGIC_RULES and Task Master documentation.
+
+## 10. Configure Task Master tags, tasks, and milestones for gating [pending]
+### Dependencies: 10.6
+### Description: Update .taskmaster configuration and task definitions so milestones, tags, and generated tasks reflect the new traceability and gating requirements, including references to doc-anchor checks, smoke tests, and notebook alignment work.
+### Details:
+Using task-master CLI commands, adjust .taskmaster/config.json via supported commands and regenerate or update .taskmaster/tasks/tasks.json so that tasks and subtasks cover GEOLOGIC_RULES maintenance, notebook anchors, smoke/CI gates, and reporting traceability. Define or refine tags for roles and milestones (e.g., geo, gen, ux, stat, rep, qa, doc, m1–m6) and ensure that gating-related tasks explicitly call out the need for doc-anchor validation, smoke tests, and CI passing statuses before marking milestones complete.
+
+## 11. Verify Task Master MCP connectivity on WSL and document WSL-specific adjustments [pending]
+### Dependencies: 10.10
+### Description: Confirm that Cursor connects to the Task Master MCP server correctly on WSL with Codex as the main model, and capture any required WSL-specific configuration tweaks in the appropriate documentation file.
+### Details:
+Using the prescribed wsl.exe wrapper configuration, restart Cursor, enable the task-master-ai MCP, and issue a few representative queries (listing tasks, expanding a task, and asking for next steps) to verify JSON-RPC stability and tool availability. If any adjustments to PATH, environment variables, or MCP configuration are required, update docs/TASKMASTER_WSL_SETUP.md or docs/CODEX_RUNBOOK.md so that future setup on WSL can follow a reliable, reproducible recipe.
+
+## 12. Perform final traceability alignment across GEOLOGIC_RULES, notebooks, code, CI, and Task Master [pending]
+### Dependencies: 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 10.10, 10.11
+### Description: Execute a final holistic pass to ensure that GEOLOGIC_RULES.md, the v20 notebooks, core code modules, Task Master tasks/tags, and CI workflows all reference each other consistently and implement the intended traceability and gating behavior.
+### Details:
+Cross-check a representative subset of principles from GEOLOGIC_RULES.md against their code anchors, notebook anchors, doc descriptions, Task Master tasks, and CI steps. Verify that any change to a generator, stacked channel function, stats routine, or reporting function is discoverable through anchors and that failures in anchors, smoke tests, or notebooks will be caught by CI and reflected in Task Master gating tasks. Capture any residual gaps as follow-up tasks or documentation updates before marking the parent task complete.
+

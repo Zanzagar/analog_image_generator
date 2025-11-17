@@ -1,0 +1,61 @@
+# Task ID: 10
+# Title: Traceability, documentation, and QA automation for aeolian release
+# Status: pending
+# Dependencies: 2, 3, 4, 5, 6, 7, 8, 9
+# Priority: medium
+# Description: Update documentation/notebooks for new functions, ensure GEOLOGIC_RULES anchors align, and add QA smoke routines covering interactive + stats + reporting pipeline.
+# Details:
+Refresh `docs/GEOLOGIC_RULES.md`, `docs/WORKFLOW.md`, PRD appendix, and `notebooks/aeolian.ipynb` anchors for every function added in Tasks 1–9. Create QA checklist in notebooks (per AGENTS instructions) confirming acceptance metrics hits. Extend `scripts/smoke_test.py` to run `generate_aeolian` for each env, compute metrics, and write reports, flagging threshold violations. Capture recap in `docs/MEETING_RECAP_2025-11-12.md` and add Task Master updates. Ensure `README` highlights Aeolian support and prerequisites.
+
+# Test Strategy:
+Add `tests/test_smoke_aeolian.py` invoking the smoke script in dry-run mode, asserting it produces metrics + PDF placeholders and that checklists tick through. Validate docs via markdown lint (pre-commit) and ensure notebooks store anchors referencing updated code names.
+
+# Subtasks:
+## 1. Align GEOLOGIC_RULES anchors with Aeolian functions from Tasks 1–9 [pending]
+### Dependencies: None
+### Description: Inventory all Aeolian-related functions implemented in Tasks 1–9 and update `docs/GEOLOGIC_RULES.md` so that every Aeolian generator, overlay, stats, and reporting entry has a correct code anchor and notebook anchor reference.
+### Details:
+Scan the `analog_image_generator` package for Aeolian-specific functions (e.g., barchan, linear, transverse, overlays, metrics, reporting helpers) introduced in Tasks 1–9 and list them alongside their fully qualified names. Update the Aeolian rows in `docs/GEOLOGIC_RULES.md` so each principle includes a `code anchor` column using the fully qualified Python name (e.g., `analog_image_generator.geologic_generators.aeolian_barchan.build_barchan_field`) and a `notebook anchor` column pointing to the expected `notebooks/aeolian.ipynb` markdown anchor IDs that follow the `anchor-aeolian-<principle>` convention. Ensure there are no stale or mismatched anchor entries and that every implemented Aeolian function is represented exactly once in the rules table.
+
+## 2. Document Aeolian workflow, sliders, and acceptance criteria in WORKFLOW, README, and PRD [pending]
+### Dependencies: 10.1
+### Description: Refresh `docs/WORKFLOW.md`, `README.md`, and relevant PRD appendices to describe Aeolian support, exposed slider ranges, and acceptance criteria consistent with AGENTS and GEOLOGIC_RULES.
+### Details:
+Edit `docs/WORKFLOW.md` to add an Aeolian-focused section that explains how to run Aeolian generators, how Task Master tasks map to Aeolian milestones, and how notebook anchors and GEOLOGIC_RULES entries stay in sync. Update `README.md` to highlight Aeolian support, prerequisites (e.g., required Python packages, Jupyter widgets), and how to invoke Aeolian runs and smoke tests from the CLI. In the PRD appendix (e.g., `.taskmaster/docs/prd.txt` or Aeolian-specific PRD files), add or refine requirements for Aeolian slider ranges (e.g., wind direction, dune height, defect rate, spacing parameters), target metrics bands, and QA acceptance criteria, ensuring they match the principles and function list captured in `docs/GEOLOGIC_RULES.md`. Verify that terminology and parameter names are consistent across all documents.
+
+## 3. Update `notebooks/aeolian.ipynb` anchors and add QA checklist per AGENTS [pending]
+### Dependencies: 10.1, 10.2
+### Description: Revise `notebooks/aeolian.ipynb` to include markdown anchor cells for each Aeolian principle and to add a top-level QA checklist cell that reflects the AGENTS roles and acceptance criteria for the Aeolian release.
+### Details:
+Open `notebooks/aeolian.ipynb` and add or update dedicated markdown cells that define anchors with IDs following the required convention `anchor-aeolian-<principle>` for every Aeolian rule represented in `docs/GEOLOGIC_RULES.md`. Each anchor cell should clearly reference the corresponding fully qualified code function and briefly summarize the geologic principle being demonstrated. At the top of the notebook, insert a QA checklist markdown cell that enumerates GEO, GEN, UX, STAT, REP, QA, and DOC acceptance items specific to Aeolian workflows (e.g., masks correctness, slider responsiveness, metric bands, report generation). Ensure the checklist items are phrased so they can be manually checked off during review and that they align with the notebook content and smoke test behavior.
+
+## 4. Extend `scripts/smoke_test.py` to run Aeolian pipeline in dry-run mode [pending]
+### Dependencies: 10.1, 10.3
+### Description: Modify `scripts/smoke_test.py` to add an Aeolian-focused smoke routine that runs `generate_aeolian` for each configured environment, computes metrics via `stats.compute_metrics`, and generates reports via `reporting.build_reports` into a temporary or dry-run output location.
+### Details:
+Extend the existing `scripts/smoke_test.py` script by adding a clear entry point or flag (e.g., `--aeolian` or `--env-type aeolian`) that triggers Aeolian-only smoke tests. Within this flow, invoke `generate_aeolian` for each Aeolian environment defined in configuration, passing deterministic seeds and minimal domain sizes suitable for CI. Pipe the generated outputs into `stats.compute_metrics` and then call `reporting.build_reports` with a temporary directory or dry-run mode so that PDF/CSV outputs and any auxiliary artifacts are produced without polluting the main reports directory. Ensure logging clearly indicates which envs ran and where outputs are written, and that failures bubble up with non-zero exit codes appropriate for CI usage.
+
+## 5. Implement Aeolian metric and report threshold checks in smoke test [pending]
+### Dependencies: 10.4
+### Description: Add simple yet robust threshold checks into the Aeolian branch of `scripts/smoke_test.py` to flag obvious metric or reporting regressions and fail fast when outputs fall outside expected bands or are missing.
+### Details:
+Within the Aeolian path of `scripts/smoke_test.py`, after calling `stats.compute_metrics` and `reporting.build_reports`, implement checks that validate critical Aeolian metrics and artifacts. For example, assert that key metric values (e.g., dune orientation errors, continuity indices, coverage fractions) lie within sane ranges derived from Tasks 2–5 test expectations, and that all expected report files (CSV, PDF, or placeholder artifacts) are present in the dry-run output directory. On any violation or missing artifact, emit a clear error message describing which environment and metric failed and exit with a non-zero status. Keep thresholds conservative to avoid flakiness but strict enough to catch regressions, and centralize them in a small config structure or function so they can be tuned as Aeolian implementations evolve.
+
+## 6. Integrate Aeolian docs and smoke checks into pre-commit and CI workflows [pending]
+### Dependencies: 10.2, 10.3, 10.5
+### Description: Update pre-commit hooks and CI configurations so that Aeolian documentation validation and the Aeolian smoke test run automatically where appropriate, without significantly impacting developer feedback time.
+### Details:
+Review existing pre-commit and CI configuration files (e.g., `.pre-commit-config.yaml`, GitHub Actions workflows, or other CI scripts) and add or extend steps to cover Aeolian-related checks. For pre-commit, ensure that relevant markdown linting, notebook metadata checks, and fast sanity checks for `docs/GEOLOGIC_RULES.md`, `docs/WORKFLOW.md`, `README.md`, and `notebooks/aeolian.ipynb` run locally, ideally avoiding heavy compute. In CI, add a job or stage that runs `scripts/smoke_test.py` in Aeolian dry-run mode along with the new `tests/test_smoke_aeolian.py`, enforcing the thresholds and artifact checks implemented earlier. Confirm that these additions fit into the existing release loop and that documentation and QA automation steps are clearly reflected in the pipeline logs.
+
+## 7. Write Aeolian release recap and Task Master usage in MEETING_RECAP [pending]
+### Dependencies: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
+### Description: Capture a concise but complete recap in `docs/MEETING_RECAP_2025-11-12.md` summarizing the Aeolian implementation status, QA posture, and how Task Master tags and tasks were used to track this work.
+### Details:
+Edit `docs/MEETING_RECAP_2025-11-12.md` to add a dedicated Aeolian section describing which generators, overlays, stats, and reporting pieces are now implemented, how GEOLOGIC_RULES anchors and notebook anchors map to the code, and what the new QA automation (smoke tests, CI hooks, and tests) covers. Include a brief narrative of Task Master usage, noting relevant tags (e.g., `aeolian-v1` or milestone tags), key tasks (including Task 10 and its subtasks), and any decisions or tradeoffs made around thresholds, performance, or documentation scope. Ensure that the recap links to or references updated docs and notebooks so future reviewers can trace requirements through to implementation and QA artifacts.
+
+## 8. Add `tests/test_smoke_aeolian.py` to validate Aeolian smoke pipeline [pending]
+### Dependencies: 10.4, 10.5, 10.6, 10.3
+### Description: Create `tests/test_smoke_aeolian.py` that exercises the Aeolian branch of `scripts/smoke_test.py` in a controlled mode, asserting that metrics and report placeholders are produced and that notebook QA checklist expectations are satisfied.
+### Details:
+Implement a new test module `tests/test_smoke_aeolian.py` that either imports a callable API from `scripts/smoke_test.py` or invokes the script via a subprocess in a fast dry-run mode confined to a temporary directory. The test should run the Aeolian smoke pipeline for at least one representative environment, then assert that metrics outputs (e.g., JSON or CSV files) and report placeholders (e.g., generated PDFs or stub files) exist and are non-empty. Where feasible, also validate that the notebook QA checklist is referenced or surfaced by the smoke routine (for example via a summary log or checklist status), or at minimum confirm that the anchors and checklist cell can be located by a lightweight notebook inspection helper. Ensure the test is deterministic, skips gracefully if Aeolian features are not configured, and integrates cleanly into the existing pytest suite.
+

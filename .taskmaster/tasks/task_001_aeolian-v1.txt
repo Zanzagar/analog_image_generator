@@ -1,0 +1,64 @@
+# Task ID: 1
+# Title: Implement Aeolian parameter schema and base field scaffolding
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Create a reusable parameter dataclass + helper utilities that normalize all aeolian slider inputs, seed RNG deterministically, and prepare base grids shared by all dune styles.
+# Details:
+Define `AeolianParams` (env, theta_deg, q, H, lambda_px, f_interdune, defect_rate, seed, invert_gradation, cement_type, event_schedule) in `geologic_generators.py` or a new `aeolian_params.py`, enforcing PRD ranges and citing research PDFs in docstrings. Add helper functions for rotating coordinate grids, sampling base noise, and gating sequential steps. Wire `docs/GEOLOGIC_RULES.md` and `notebooks/aeolian.ipynb#anchor-aeolian-params` to the new class.
+Pseudo-code:
+```
+@dataclass
+class AeolianParams:
+    env: Literal["barchan","linear","transverse"]
+    theta_deg: float = clamp(theta, 0, 180)
+    ...
+    def rng(self) -> np.random.Generator:
+        return np.random.default_rng(self.seed)
+
+def make_base_field(params):
+    grid = gaussian_noise(params)
+    return rotate(grid, params.theta_deg)
+```
+Update `docs/WORKFLOW.md` to mention Aeolian slider defaults and link associated notebook anchors.
+
+# Test Strategy:
+Add `tests/test_aeolian_params.py` with pytest cases that (a) clamp each slider to PRD ranges, (b) verify seeds yield identical grids, and (c) ensure invalid env names raise `ValueError`. Use hypothesis-style parametrization across ranges.
+
+# Subtasks:
+## 1. Draft AeolianParams schema and module layout [pending]
+### Dependencies: None
+### Description: Design the AeolianParams dataclass shape and decide where it lives in the package.
+### Details:
+Survey existing geologic generator modules under src/analog_image_generator to align naming and patterns, then draft the AeolianParams field list (env, theta_deg, q, H, lambda_px, f_interdune, defect_rate, seed, invert_gradation, cement_type, event_schedule) with clear Python types and sensible defaults. Decide whether to place the dataclass in src/analog_image_generator/geologic_generators.py or a dedicated src/analog_image_generator/aeolian_params.py module, and sketch how downstream functions (generate_aeolian, aeolian_*_ridges, etc.) will import it. Capture PRD-backed ranges and units for each parameter from research-documents/README.md and GEOLOGIC_RULES so later validation logic is straightforward.
+
+## 2. Implement AeolianParams dataclass with PRD-backed validation and normalization [pending]
+### Dependencies: 1.1
+### Description: Code the AeolianParams dataclass, enforcing PRD ranges and normalizing all aeolian slider inputs.
+### Details:
+Implement the AeolianParams dataclass in the chosen module with type annotations, defaults, and a __post_init__ (or factory constructor) that clamps or validates each numeric field (theta_deg, q, H, lambda_px, f_interdune, defect_rate) to the ranges specified in the PRD and research PDFs. Enforce env as a Literal of allowed styles (barchan, linear, transverse), normalize booleans like invert_gradation, and validate cement_type and event_schedule structure. Include docstrings citing the relevant research PDFs and PRD sections, and ensure error handling (e.g., ValueError) is informative for out-of-range or unsupported combinations.
+
+## 3. Provide deterministic RNG helper bound to AeolianParams [pending]
+### Dependencies: 1.2
+### Description: Wire deterministic RNG seeding into AeolianParams using utils.seeded_rng or an equivalent helper.
+### Details:
+Add an rng() method or equivalent helper on AeolianParams that returns a numpy.random.Generator seeded deterministically from the seed field (and optionally env or other stable identifiers), reusing an existing utils.seeded_rng helper if available or implementing a small wrapper if not. Ensure the generator is reproducible across runs for the same AeolianParams instance, document the seeding strategy in the class docstring, and establish a clear pattern for downstream aeolian functions to either accept a Generator or call params.rng() for randomness.
+
+## 4. Implement base-field utilities for aeolian grids, rotation, and base noise [pending]
+### Dependencies: 1.2, 1.3
+### Description: Create shared base-field utilities that build coordinate grids, rotate them, and sample base noise for all aeolian dune styles.
+### Details:
+Implement utility functions such as make_base_field(params), make_coord_grid(shape or resolution, params), rotate_grid(grid, theta_deg), and sample_base_noise(params, rng) in the chosen aeolian module, using numpy to construct base Gaussian or other simple noise fields. Ensure these utilities accept AeolianParams (and optionally an explicit RNG from params.rng()) and apply wind azimuth theta_deg consistently when rotating grids. Keep implementations lightweight but reusable across barchan, linear, and transverse generators, and gate sequential steps (e.g., base field creation, rotation, optional post-processing) in a clear, composable way suitable for future extension.
+
+## 5. Wire AeolianParams and helpers into GEOLOGIC_RULES and aeolian notebook anchors [pending]
+### Dependencies: 1.1, 1.2, 1.4
+### Description: Update GEOLOGIC_RULES.md, notebooks/aeolian.ipynb, and docs/WORKFLOW.md to reference the new AeolianParams schema and base-field utilities.
+### Details:
+Edit docs/GEOLOGIC_RULES.md to add or update entries for the Aeolian parameter schema and base-field utilities, including fully qualified code anchors such as analog_image_generator.aeolian_params.AeolianParams or the chosen module path. Update notebooks/aeolian.ipynb at anchor-aeolian-params to describe each parameter, its PRD-backed range, units, and intended slider representation, and to reference the implemented class and helper functions. Adjust docs/WORKFLOW.md to mention Aeolian slider defaults, link to the aeolian notebook anchor and GEOLOGIC_RULES entry, and ensure that anchor IDs and code anchors stay in sync with the new implementations.
+
+## 6. Add pytest coverage for AeolianParams validation, RNG, and base-field utilities [pending]
+### Dependencies: 1.2, 1.3, 1.4
+### Description: Create tests/test_aeolian_params.py with parametrized and property-style tests covering clamping, validation errors, and deterministic seeding.
+### Details:
+Add tests/test_aeolian_params.py that uses pytest (and optional hypothesis-style patterns or parametrization) to verify AeolianParams behavior: numeric sliders are clamped or rejected according to PRD ranges, invalid env or cement_type values raise ValueError with clear messages, and invert_gradation/event_schedule fields behave as expected. Include tests that construct AeolianParams with fixed seeds and assert that calls into base-field utilities (e.g., make_base_field) produce identical grids for the same parameters and differing grids for different seeds. Add additional checks that grid rotation respects theta_deg and that base-noise statistics stay within reasonable bounds to catch regressions in the utilities.
+

@@ -1,0 +1,81 @@
+# Task ID: 8
+# Title: Implement full Phase 1 & 2 metrics pipeline
+# Status: pending
+# Dependencies: 2, 3, 4, 5, 6
+# Priority: medium
+# Description: Fill `stats.py` compute_metrics covering variograms, entropy, fractal dimension, PSD anisotropy, topology, and property metadata hooks.
+# Details:
+- Implement helpers: `compute_variogram(gray, directions)`, `fit_power_law(beta)`, `two_segment_fit(lags)`, `entropy(gray)`, `fractal_dimension(beta)`, `psd_anisotropy(gray)`, `topology_metrics(mask)` using NumPy/SciPy.
+- Accept `gray`, `masks`, `env`, and optional `metadata` (from Tasks 2–6) to append petrology + sedimentary flags.
+- Ensure outputs include PRD fields: `beta_iso`, `beta_dir_*`, `anisotropy_ratio`, `beta_seg1`, `beta_seg2`, `h0`, `entropy_global`, `D`, `SFI`, `psd_aspect`, `psd_theta`, `area_*`, `compact_*`, `conn_*`, mineralogical tags, QA flags for property presence, stacked package metadata.
+- Provide quick metric adapter for interactive preview (β/D/H) to avoid recomputation.
+- Validate outputs against acceptance bands (raise warnings when outside expected ranges, e.g., braided PSD aspect >2.0) and propagate to reporting.
+- Document formulas + references in GEOLOGIC_RULES + notebooks (Phase 1 & 2 sections).
+
+# Test Strategy:
+- Add `tests/test_stats.py` with synthetic arrays (analytic slopes) verifying β estimates within tolerance and PSD aspect detection of anisotropic Gaussian field.
+- Include fixtures for mask topology (simple polygons) to verify area/compactness/connectivity calculations.
+- Run regression tests comparing computed metrics to stored JSON fixtures generated from deterministic seeds; fail if deviation > tolerance.
+- Integrate into `scripts/smoke_test.py` to compute metrics for each env and assert required keys exist.
+
+# Subtasks:
+## 1. Design metrics result schema and QA flag structure [pending]
+### Dependencies: None
+### Description: Define a flat, typed metrics result schema for compute_metrics covering all PRD fields, QA flags, and stacked package metadata.
+### Details:
+Review the PRD, reporting requirements, and existing CSV/PDF expectations to enumerate all required keys (e.g., beta_iso, beta_dir_*, anisotropy_ratio, beta_seg1, beta_seg2, h0, entropy_global, D, SFI, psd_aspect, psd_theta, area_*, compact_*, conn_*, mineralogical tags, property presence flags, stacked package metadata). Specify units, types, and default missing-value conventions (e.g., NaN or None), and design a canonical flat dict layout plus any lightweight internal container (e.g., TypedDict or dataclass) used inside stats.py. Capture QA thresholds (e.g., braided PSD aspect > 2.0) and define corresponding boolean or categorical QA fields that downstream reporting can consume consistently.
+
+## 2. Implement compute_variogram(gray, directions) and lag binning helpers [pending]
+### Dependencies: 8.1
+### Description: Create variogram computation utilities for grayscale images, including lag vector generation and directional binning.
+### Details:
+Implement compute_variogram(gray, directions) in stats.py using NumPy (and SciPy if helpful) to compute semi-variograms for a set of directions (e.g., 0°, 45°, 90°, 135°). Add helper functions to generate lag offsets, accumulate squared differences, and bin by lag distance with appropriate normalization and masking of NaNs. Ensure support for isotropic aggregation as well as per-direction outputs so that later fitting can derive beta_iso and beta_dir_* values. Make the implementation efficient enough for interactive use on typical grid sizes by avoiding Python loops where possible.
+
+## 3. Implement power-law and two-segment variogram slope fitting helpers [pending]
+### Dependencies: 8.2
+### Description: Fit power-law and two-segment models to variogram data to estimate beta, beta_seg1, beta_seg2, and h0.
+### Details:
+Add fit_power_law() to estimate a single-slope beta from log-log variogram versus lag data using robust linear regression or SciPy curve fitting, including safeguards against noisy or sparse bins. Implement two_segment_fit() to split the lag range into two regimes (e.g., using a breakpoint search or fixed fraction of max lag) and fit separate slopes beta_seg1 and beta_seg2 plus an intercept-based characteristic scale h0. Ensure both helpers return diagnostics (R^2, number of points used, valid flag) so compute_metrics can set QA flags when fits are unreliable.
+
+## 4. Implement entropy(gray) and fractal_dimension(beta) calculations [pending]
+### Dependencies: 8.2, 8.3
+### Description: Compute global entropy of grayscale textures and derive fractal dimension from variogram slopes.
+### Details:
+Implement entropy(gray) using histogram- or probability-based Shannon entropy over the grayscale image, handling NaNs or masked regions as needed and normalizing bins consistently across tests and environments. Implement fractal_dimension(beta) using the chosen geologic relationship between variogram slope and fractal dimension (e.g., D = f(beta) as specified in PRD and GEOLOGIC_RULES), supporting both isotropic beta and directional or segmented variants if needed. Ensure both functions are numerically stable and documented with explicit formulas and parameter choices.
+
+## 5. Implement psd_anisotropy(gray) using FFT-based PSD analysis [pending]
+### Dependencies: 8.1, 8.2
+### Description: Use 2D FFT-based power spectral density to quantify anisotropy_ratio, psd_aspect, and psd_theta for grayscale fields.
+### Details:
+Implement psd_anisotropy(gray) that computes a 2D FFT, forms the power spectral density, converts to polar or elliptical coordinates, and estimates the dominant orientation and aspect ratio of spectral energy. Derive metrics including anisotropy_ratio, psd_aspect (major/minor axis ratio of spectral ellipse), and psd_theta (dominant orientation angle in degrees). Include options to window or detrend the field to avoid edge artifacts, and ensure the function is efficient enough for repeated use in a pipeline. Return both scalar metrics and any internal diagnostic values needed for QA threshold checks.
+
+## 6. Implement topology_metrics(mask) for area, compactness, connectivity, and SFI [pending]
+### Dependencies: 8.1
+### Description: Create topology_metrics utilities that compute per-facies area, compactness, connectivity, SFI, and related topology metrics from boolean masks.
+### Details:
+Implement topology_metrics(mask) in stats.py to operate on labeled or boolean masks for individual facies and environments. Use connected-component analysis (e.g., SciPy ndimage) to compute component counts, areas, perimeters, and shape descriptors. From these, derive compactness indices, connectivity metrics (e.g., number of connected clusters, largest cluster fraction, percolation flags), and sinuosity or shape factor index (SFI) as defined in the PRD. Ensure the function can be applied per-mask (channel, bar, marsh, etc.) and returns a flat dict with names like area_channel, compact_channel, conn_channel, and SFI_channel consistent with the schema from subtask 1.
+
+## 7. Implement compute_metrics(gray, masks, env, metadata=None) orchestration [pending]
+### Dependencies: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
+### Description: Build the main compute_metrics function to orchestrate all metric helpers, integrate metadata, and output a flat metrics dict.
+### Details:
+Implement compute_metrics in stats.py so that it accepts gray, masks, env, and optional metadata from Tasks 2–6 (petrology, sedimentary structures, stacked packages). Within this function, call compute_variogram, fit_power_law, two_segment_fit, entropy, fractal_dimension, psd_anisotropy, and topology_metrics for relevant masks. Map all outputs into the schema from subtask 1, including beta_iso, beta_dir_*, anisotropy_ratio, beta_seg1, beta_seg2, h0, entropy_global, D, SFI, psd_aspect, psd_theta, area_*, compact_*, conn_*, mineralogical tags, QA flags, and stacked package metadata fields. Implement acceptance-band checks (e.g., braided PSD aspect > 2.0) that set QA flags or warnings, and ensure the function returns a flat dict of floats and tags suitable for CSV and reporting.
+
+## 8. Add lightweight β/D/H adapter for interactive preview mode [pending]
+### Dependencies: 8.3, 8.4, 8.7
+### Description: Provide a fast adapter or mode that returns only β, D, and H-like metrics for interactive previews without full recomputation.
+### Details:
+Design and implement either a dedicated function (e.g., compute_preview_metrics) or a mode flag on compute_metrics that computes and returns only the minimal set of preview metrics (e.g., beta_iso or dominant beta_dir, fractal dimension D, and a representative H parameter) using cached or simplified computations. Reuse intermediate results from prior full runs where possible or implement reduced-resolution / subsampling paths to keep latency low. Ensure the adapter has a stable, documented mini-schema and integrates cleanly with the interactive UX layer without breaking the main pipeline.
+
+## 9. Create tests/test_stats.py with synthetic fields and regression fixtures [pending]
+### Dependencies: 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8
+### Description: Develop a comprehensive test suite for stats.py using synthetic analytic fields, topology masks, and regression fixtures to ensure numerical stability.
+### Details:
+Add tests/test_stats.py that consolidates unit and integration tests for all metric helpers and compute_metrics. Generate synthetic fields with known variogram slopes and PSD properties, plus simple topology masks, to validate each metric numerically within defined tolerances. Introduce regression fixtures (e.g., serialized metrics dicts or key subsets) for representative env configurations to detect unintended changes over time. Cover edge cases such as small images, empty masks, extreme anisotropy, and noisy data, and ensure tests are stable across platforms by fixing RNG seeds and binning parameters.
+
+## 10. Integrate compute_metrics into smoke tests and geologic documentation [pending]
+### Dependencies: 8.7, 8.8, 8.9
+### Description: Wire compute_metrics into scripts/smoke_test.py and update GEOLOGIC_RULES.md plus notebooks with formulas, anchors, and Phase 1 & 2 coverage.
+### Details:
+Update scripts/smoke_test.py to call compute_metrics on representative outputs from fluvial generators and stacked packages, logging key metrics and QA flags as part of the smoke pipeline. Extend GEOLOGIC_RULES.md with a dedicated stats section that documents formulas, parameter choices, and metric definitions, and add corresponding anchors referring to fully qualified code names in stats.py. Update relevant Phase 1 and Phase 2 notebooks under notebooks/ with markdown cells explaining each implemented metric, linking to GEOLOGIC_RULES anchors, and demonstrating basic usage with plots or printed metrics. Ensure all anchors follow the required naming convention and that rules and notebooks remain in sync with the implemented code.
+

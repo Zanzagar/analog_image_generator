@@ -226,7 +226,7 @@ task-master init --rules codex,cursor --yes
 task-master models
 
 # Set Codex as main model
-task-master models --set-main gpt-5-codex
+task-master models --set-main gpt-5.1-codex
 
 # Optionally set fallback
 task-master models --set-fallback claude-sonnet-4-20250514
@@ -241,7 +241,7 @@ Active Model Configuration:
 ┌──────────┬──────────────┬──────────────────┬────────────┬──────────────┐
 │ Role     │ Provider     │ Model ID         │ SWE Score  │ Cost         │
 ├──────────┼──────────────┼──────────────────┼────────────┼──────────────┤
-│ Main     │ codex-cli    │ gpt-5-codex      │ 74.9% ★★★  │ Free         │
+│ Main     │ codex-cli    │ gpt-5.1-codex    │ 74.9% ★★★  │ Free         │
 │ Research │ perplexity   │ sonar-pro        │ N/A        │ $3 in/$15 out│
 │ Fallback │ anthropic    │ claude-3-7-...   │ 62.3% ★★☆  │ $3 in/$15 out│
 └──────────┴──────────────┴──────────────────┴────────────┴──────────────┘
@@ -381,7 +381,7 @@ task-master show 1
   "models": {
     "main": {
       "provider": "codex-cli",
-      "modelId": "gpt-5-codex",
+      "modelId": "gpt-5.1-codex",
       "maxTokens": 120000,
       "temperature": 0.2
     },
@@ -417,7 +417,7 @@ task-master show 1
 ### 6.4 Codex Config (`~/.codex/config.toml`)
 
 ```toml
-model = "gpt-5-codex"
+model = "gpt-5.1-codex"
 model_reasoning_effort = "high"
 
 [projects."/home/cjh5690/projects/analog-image-generator"]
@@ -427,7 +427,7 @@ trust_level = "trusted"
 **Key Points**:
 - `auth.json` in same directory contains OAuth tokens (auto-managed)
 - `trust_level = "trusted"` allows Codex to execute commands
-- Model preference set to `gpt-5-codex` (highest capability)
+- Model preference set to `gpt-5.1-codex` (highest capability)
 
 ---
 
@@ -441,7 +441,7 @@ task-master init --rules codex,cursor --yes
 ### Model Management
 ```bash
 task-master models                              # View current config
-task-master models --set-main gpt-5-codex       # Set Codex as main
+task-master models --set-main gpt-5.1-codex     # Set Codex as main
 task-master models --set-research sonar-pro     # Set Perplexity for research
 task-master models --set-fallback claude-sonnet-4-20250514
 ```
@@ -548,6 +548,11 @@ Core + `initialize_project`, `analyze_project_complexity`, `expand_all`, `add_su
 ---
 
 ## 9) Workflow Integration with Geologic Modeling
+
+### Stacked Channel Architecture Mandate
+- Fluvial work now includes multi-package stacking with erosional boundaries. Every generator (meander/braided/anasto) can be sequenced into stacked channel “packages” that track erosion depth, thickness, and boundary masks.
+- PRDs, sliders, and Task Master tasks must expose controls for `package_count`, package style mix, and `erosional_relief_px`; interactive previews include a toggle between single-belt and stacked modes.
+- Stats/reporting pipelines record boundary masks, relief metadata, and QC flags so stacked runs remain traceable (CSV/PDF/anchor coverage).
 
 ### Phase 1: Project Setup
 ```bash
@@ -1043,7 +1048,7 @@ export TASK_MASTER_TOOLS='all'
 ### Per-Project Setup
 
 - [ ] Initialize Task Master: `task-master init --rules codex,cursor --yes`
-- [ ] Set Codex as main model: `task-master models --set-main gpt-5-codex`
+- [ ] Set Codex as main model: `task-master models --set-main gpt-5.1-codex`
 - [ ] Verify config: `task-master models`
 - [ ] Create PRD: `.taskmaster/docs/prd.txt`
 - [ ] Generate tasks: `task-master parse-prd .taskmaster/docs/prd.txt`

@@ -1,0 +1,89 @@
+# Task ID: 8
+# Title: Extend stats engine with aeolian Phase1/Phase2 metrics
+# Status: pending
+# Dependencies: 6
+# Priority: medium
+# Description: Implement Phase 1/2 metrics plus aeolian-specific metrics (orientation rose vs θ, ridge continuity, interdune connectivity, PSD residuals, property trend logging).
+# Details:
+In `stats.py`, expand `compute_metrics` to detect env == "aeolian" and compute β_iso, β_dir_{0,45,90,135}, anisotropy ratio, two-segment fits, entropy, D/SFI, PSD anisotropy/aspect/θ, topology counts per mask using numpy/scipy. Incorporate Task 5 metadata for cross-bedding histograms, roundedness, texture variance, inversions, event counts, and crater frequencies. Return dict ready for CSV/export. Provide helper functions for PSD orientation residual vs θ_wind.
+Pseudo-code:
+```
+def compute_metrics(gray, masks, env):
+    if env == "aeolian":
+        beta = calc_beta(gray)
+        psd = fft2(gray)
+        ridge = masks["ridge"]
+        metrics = {
+            "beta_iso": beta.iso,
+            "ridge_continuity": ridge_continuity(ridge),
+            ...
+        }
+        return metrics
+    ...
+```
+Update docstrings referencing research PDFs and acceptance thresholds.
+
+# Test Strategy:
+Add `tests/test_aeolian_metrics.py` generating small synthetic masks to verify (a) PSD orientation residual within ±10° for aligned inputs, (b) ridge continuity matches Task 3 output, (c) interdune connectivity calculation equals 1−χ/A, and (d) cross-bedding hist hist counts include >0 entries. Use fixtures to assert metrics schema stability.
+
+# Subtasks:
+## 1. Design env-aware compute_metrics API and aeolian dispatch [pending]
+### Dependencies: None
+### Description: Design the overall structure of compute_metrics in stats.py to support env-specific branches and add a clear API contract for the aeolian case.
+### Details:
+Define the function signature, expected input types and shapes for gray and masks coming from generate_aeolian, and how env will be passed. Sketch an internal dispatch pattern (e.g., if/elif or small registry) that cleanly isolates aeolian metrics from other environments while sharing common helpers. Capture required metric groups (beta, entropy, PSD, topology, metadata) and expected output dict keys to guide subsequent implementation.
+
+## 2. Implement beta and anisotropy helpers for aeolian gray fields [pending]
+### Dependencies: 8.1
+### Description: Create helper functions to compute β_iso, directional β at 0/45/90/135 degrees, and anisotropy ratios from gray-scale dune fields.
+### Details:
+Using numpy and scipy, implement reusable functions such as compute_beta_iso, compute_beta_directional, and compute_anisotropy_ratio that operate on the gray intensity field. Decide on windowing or global statistics, handle NaNs or masked areas, and ensure outputs are scalar metrics suitable for CSV export. Implement two-segment fits for directional trends (e.g., piecewise linear fits to angle–intensity relationships) with robust handling of edge cases and small images.
+
+## 3. Implement entropy and D/SFI-style fractal metrics [pending]
+### Dependencies: 8.1
+### Description: Add entropy-based and D/SFI-like fractal or roughness metrics for aeolian gray fields following depositional_environments_generation_rules.pdf guidance.
+### Details:
+Implement helper functions to compute intensity histogram entropy, possible multi-scale entropy, and a D or SFI-like scalar that characterizes spatial roughness or fractal behavior of the dune field. Use numpy histogramming and optionally scipy-based scaling analysis, adhering to thresholds and interpretations described in depositional_environments_generation_rules.pdf. Ensure these functions accept gray plus optional masks and return stable scalar metrics for inclusion in the aeolian metrics dict.
+
+## 4. Implement PSD-based anisotropy and orientation metrics via FFT [pending]
+### Dependencies: 8.1, 8.2
+### Description: Compute PSD anisotropy, aspect ratio, dominant orientation θ, and residual vs θ_wind using FFT-based analysis of aeolian gray fields.
+### Details:
+Implement FFT-based helpers that compute the 2D power spectrum of the gray field, convert to polar coordinates, and derive metrics such as anisotropy (max/min radial power), aspect ratio of the dominant lobe, and dominant orientation angle. Add a function that takes θ_wind and returns an orientation residual metric based on the difference between PSD peak orientation and wind direction. Ensure efficient use of numpy.fft, apply windowing to reduce edge effects, and expose all PSD-derived metrics in a structured result for the aeolian branch.
+
+## 5. Implement topology and mask-based metrics for ridges and interdunes [pending]
+### Dependencies: 8.1
+### Description: Add mask-driven topology metrics including ridge continuity, interdune connectivity, and cross-bedding set counts using labeled connectivity analysis.
+### Details:
+Using masks from generate_aeolian (e.g., ridge, interdune, cross_bedding), implement functions that compute ridge continuity (largest crest component area divided by total ridge area), an interdune connectivity metric compatible with 1−χ/A or similar, and counts or size distributions of cross-bedding sets. Use scipy.ndimage or similar labeling operations to detect connected components and derive topology metrics. Ensure masks are validated, handle missing keys gracefully, and return scalar metrics per mask suitable for CSV export.
+
+## 6. Integrate aeolian overlays and metadata from Task 5 into metrics [pending]
+### Dependencies: 8.1, 8.2, 8.3, 8.4, 8.5
+### Description: Wire in Aeolian overlay metadata such as rounding indices, gradation inversions, texture variance, event counts, and crater frequencies into the metrics pipeline.
+### Details:
+Extend compute_metrics and associated helpers to accept or retrieve metadata structures produced in Task 5 (e.g., dictionaries describing rounding indices, gradation inversion flags, texture variance fields, event logs, and crater statistics). Normalize these into scalar or small-vector metrics with clear naming, encode flags as booleans or 0/1 where appropriate, and merge them into the aeolian metrics dict alongside numeric field-based metrics. Ensure that missing metadata is handled robustly with defaults or explicit null-like values.
+
+## 7. Define stable aeolian metrics schema and naming for exports [pending]
+### Dependencies: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
+### Description: Design and codify a stable schema for aeolian metrics, including names, units, and descriptions compatible with reporting and docs.
+### Details:
+Compile a comprehensive list of aeolian metrics (beta, entropy, D/SFI, PSD metrics, topology metrics, metadata-derived metrics) and define canonical field names, units, and brief descriptions. Implement a small schema registry or mapping in stats.py or a nearby module that compute_metrics uses when constructing the output dict, ensuring column order stability where needed. Cross-check the schema against reporting.build_reports expectations and update docs/TASKMASTER_TASKS_EXPORT.md to reflect the new aeolian metrics.
+
+## 8. Integrate aeolian metrics with reporting and CSV/export pipeline [pending]
+### Dependencies: 8.7, 8.6
+### Description: Ensure aeolian metrics flow cleanly into reporting.build_reports and CSV generation, matching the agreed schema and formats.
+### Details:
+Update reporting-related code to recognize env=='aeolian' and include the full set of aeolian metrics in CSV outputs, per-environment PDFs, and the master PDF. Confirm that metric names, units, and groupings match the schema from the previous subtask and that legends or labels remain consistent with PALETTES and documentation. Verify that batch runs and Task Master exports can consume the new metrics without additional configuration changes.
+
+## 9. Optimize aeolian metrics computation for batch and CI performance [pending]
+### Dependencies: 8.2, 8.3, 8.4, 8.5, 8.6, 8.8
+### Description: Profile and optimize the aeolian metrics implementation to run efficiently in batch sweeps and CI pipelines without timeouts.
+### Details:
+Review all aeolian metric helpers for unnecessary recomputation, ensure FFTs and label operations are reused or cached when possible, and prefer vectorized numpy operations over Python loops. Add sensible limits or fallbacks for extremely large grids and document expected runtime characteristics. Where appropriate, gate expensive research-only metrics behind flags while keeping the default CI path fast. Confirm memory usage is acceptable for multi-realization batch runs.
+
+## 10. Add synthetic-pattern tests for aeolian metrics and schema stability [pending]
+### Dependencies: 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9
+### Description: Create tests/test_aeolian_metrics.py with synthetic patterns and masks to validate metric correctness, angular tolerances, topology, histograms, and schema stability.
+### Details:
+Implement a dedicated test module tests/test_aeolian_metrics.py that constructs synthetic gray fields (oriented stripes, isotropic noise, gradients) and masks (simple ridge and interdune patterns, cross-bedding patches) to exercise all aeolian metrics. Validate PSD orientation residuals against θ_wind within ±10°, confirm ridge continuity and interdune connectivity formulas, check that cross-bedding and overlay histograms produce nonzero, reasonable counts, and assert that the output metrics dict adheres to the defined schema. Use fixed random seeds to keep tests deterministic.
+

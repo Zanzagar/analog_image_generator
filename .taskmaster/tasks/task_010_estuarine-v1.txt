@@ -1,0 +1,37 @@
+# Task ID: 10
+# Title: Add automated tests & smoke coverage for estuarine pipeline
+# Status: pending
+# Dependencies: 4, 5, 7, 8
+# Priority: medium
+# Description: Create comprehensive pytest suites and smoke scripts that cover generator outputs, slider plumbing, metrics, and reporting to prevent regressions before CI/Task Master handoff.
+# Details:
+- Add new test modules (`tests/test_estuarine_generator.py`, `tests/test_estuarine_metrics.py`, `tests/test_reporting_estuarine.py`) exercising default, tide-heavy, and wave-heavy scenarios; assert RNG reproducibility, mask coverage, QC flags, and reporting artifacts.
+- Expand `scripts/smoke_test.py` to run a mini pipeline: generate two realizations, compute metrics, and build CSV/PDF outputs, printing summary statuses for QA.
+- Ensure tests run quickly by downsampling arrays where possible and mocking heavy PDF generation in unit tests (while leaving one integration test for real file I/O using tmp_path).
+- Wire the new tests into CI (pytest collection picks up automatically) and document how to run them locally (`pytest tests/test_estuarine_*`).
+- Collect coverage data for generator/interactive/stats/reporting to ensure critical branches are exercised; update QA checklist accordingly.
+
+# Test Strategy:
+- Pytest suites verifying deterministic outputs, slider validation, QC flag boundaries, reporting file creation, and smoke pipeline success.
+- Use hypothesis/property tests for parameter clamping edge cases.
+- Add CI badge/update if coverage thresholds met; ensure `pre-commit run --all-files` stays clean after new notebooks/docstrings are included.
+
+# Subtasks:
+## 1. Create estuarine pytest modules for generators, metrics, and reporting [pending]
+### Dependencies: None
+### Description: Add dedicated pytest modules for the estuarine pipeline covering generator outputs, metrics, and reporting artifacts across key estuarine regimes.
+### Details:
+Create `tests/test_estuarine_generator.py`, `tests/test_estuarine_metrics.py`, and `tests/test_reporting_estuarine.py`. In the generator tests, exercise at least default, tide-dominated, and wave-dominated presets using fixed RNG seeds, asserting deterministic gray output, stable masks, and expected QC flags. In the metrics tests, verify that core estuarine metrics (e.g., bar geometries, shoreline orientation statistics, mudflat coverage) are computed without errors and obey PRD-defined bounds. In the reporting tests, verify that estuarine runs emit expected CSV rows and minimal PDF artifacts (mocking heavy rendering where appropriate) and that any per-environment legends, palette mappings, and QC flags appear in the outputs.
+
+## 2. Extend smoke_test.py to cover estuarine mini-pipeline [pending]
+### Dependencies: None
+### Description: Expand the smoke testing script to run an end-to-end estuarine pipeline producing metrics and reporting artifacts for QA.
+### Details:
+Modify `scripts/smoke_test.py` to add an estuarine-focused smoke path that generates at least two realizations (e.g., tide-heavy and wave-heavy), computes metrics, and writes CSV and PDF outputs into a temporary or configured output folder. Ensure the script prints concise summary lines for each realization, including generator success, metric summary, and reporting status, plus a final overall PASS/FAIL code for CI. Where possible, downsample arrays and reuse existing helpers so the smoke path runs within seconds on a laptop while still exercising generator, metrics, and reporting stacks end to end.
+
+## 3. Optimize estuarine tests for speed, CI wiring, and coverage tracking [pending]
+### Dependencies: None
+### Description: Ensure estuarine tests are fast, wired into CI, and contribute to coverage and QA checklists without adding excessive runtime.
+### Details:
+Review newly added estuarine tests to downsample large arrays and use fixtures or parametrization to minimize redundant work, and mock heavy PDF generation except for a single integration-style test that writes real files via `tmp_path`. Confirm that pytest auto-discovers the new `tests/test_estuarine_*.py` modules and that the CI configuration (e.g., GitHub Actions or local pipeline) runs `pytest tests/test_estuarine_*` as part of the standard test job. Enable or update coverage collection so generator, interactive/slider plumbing, stats, and reporting modules used by the estuarine pipeline are included, and update the QA checklist and documentation to reference the new estuarine coverage and smoke steps.
+
