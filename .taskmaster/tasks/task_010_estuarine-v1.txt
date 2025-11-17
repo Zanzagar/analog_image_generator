@@ -34,4 +34,3 @@ Modify `scripts/smoke_test.py` to add an estuarine-focused smoke path that gener
 ### Description: Ensure estuarine tests are fast, wired into CI, and contribute to coverage and QA checklists without adding excessive runtime.
 ### Details:
 Review newly added estuarine tests to downsample large arrays and use fixtures or parametrization to minimize redundant work, and mock heavy PDF generation except for a single integration-style test that writes real files via `tmp_path`. Confirm that pytest auto-discovers the new `tests/test_estuarine_*.py` modules and that the CI configuration (e.g., GitHub Actions or local pipeline) runs `pytest tests/test_estuarine_*` as part of the standard test job. Enable or update coverage collection so generator, interactive/slider plumbing, stats, and reporting modules used by the estuarine pipeline are included, and update the QA checklist and documentation to reference the new estuarine coverage and smoke steps.
-

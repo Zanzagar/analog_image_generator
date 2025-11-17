@@ -79,4 +79,3 @@ Add `tests/test_braided.py` that exercises the full braided pipeline through `ge
 ### Description: Align braided function anchors and notebook markdown cells with implemented code.
 ### Details:
 Edit `docs/GEOLOGIC_RULES.md` to add or update braided-related entries for `analog_image_generator.geologic_generators.braided_threads`, `seed_bars`, `add_chutes`, `compose_braided_gray`, and `generate_braided`, documenting key geologic principles (thread counts, width ranges, bar spacing factors, chute behavior). Then update the braided environment notebook under `notebooks/` (e.g., `notebooks/braided.ipynb`) to include markdown cells with anchors following the `anchor-braided-<principle>` convention, referencing both the fully qualified function names and the rules text. Ensure meandering and braided anchors co-exist without naming collisions and that any refactored function names remain synchronized between code, rules, and notebook anchors.
-

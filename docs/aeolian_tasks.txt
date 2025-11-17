@@ -263,4 +263,3 @@ Listing tasks from: /home/cjh5690/projects/analog_image_generator/.taskmaster/ta
 │   as complete                                                             │
 │                                                                           │
 ╰───────────────────────────────────────────────────────────────────────────╯
-

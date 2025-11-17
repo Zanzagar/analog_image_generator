@@ -89,4 +89,3 @@ Using the prescribed wsl.exe wrapper configuration, restart Cursor, enable the t
 ### Description: Execute a final holistic pass to ensure that GEOLOGIC_RULES.md, the v20 notebooks, core code modules, Task Master tasks/tags, and CI workflows all reference each other consistently and implement the intended traceability and gating behavior.
 ### Details:
 Cross-check a representative subset of principles from GEOLOGIC_RULES.md against their code anchors, notebook anchors, doc descriptions, Task Master tasks, and CI steps. Verify that any change to a generator, stacked channel function, stats routine, or reporting function is discoverable through anchors and that failures in anchors, smoke tests, or notebooks will be caught by CI and reflected in Task Master gating tasks. Capture any residual gaps as follow-up tasks or documentation updates before marking the parent task complete.
-

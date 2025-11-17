@@ -67,4 +67,3 @@ Review `docs/GEOLOGIC_RULES.md` and `docs/PALETTES.md` to identify existing Aeol
 ### Description: Create a dedicated pytest module that validates orientation error, spacing residuals, and continuity ranges across seeded runs.
 ### Details:
 Introduce `tests/test_transverse_generator.py` that constructs AeolianParams for transverse dunes with representative values of H, lambda_px (set and unset), theta_deg, and defect_rate, then calls `build_transverse_field`. Implement tests that (a) estimate PSD-based crest orientation and assert median |θ_PSD − (theta_deg + 90°)| ≤ 15°, (b) measure crest spacing from the crest mask and confirm average spacing lies within ±10% of the target λ, and (c) compute crest continuity metrics to ensure they fall within the desired 0.4–0.6 band for default parameters. Use deterministic seeds and small grids for performance, borrowing helper utilities from existing aeolian tests where available.
-

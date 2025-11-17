@@ -61,4 +61,3 @@ Implement `clamp_estuarine_params` to accept loosely-typed input mappings (e.g.,
 ### Description: Wire `EstuarineParams` and `PARAM_METADATA["estuarine"]` into `analog_image_generator.interactive.build_sliders` so UI sliders are generated from the shared configuration.
 ### Details:
 Update `analog_image_generator.interactive.build_sliders` (or related interactive modules) to read from `PARAM_METADATA["estuarine"]` when requested mode is estuarine, generating slider controls whose ranges, defaults, and tooltips reflect the shared metadata and map cleanly onto `EstuarineParams`. Ensure any existing hardcoded estuarine sliders are removed or migrated, and that the function returns structures compatible with downstream consumers of estuarine parameters.
-

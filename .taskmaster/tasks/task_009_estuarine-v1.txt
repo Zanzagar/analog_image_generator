@@ -34,4 +34,3 @@ Open notebooks/estuarine.ipynb and add or update markdown cells that describe ea
 ### Description: Synchronize PRD, workflow, and reporting documentation for estuarine parameters, CSV schema, and PDF outputs with the latest implementation.
 ### Details:
 Review the current estuarine implementation (parameters, acceptance logic, CSV fields, and PDF figures) and update .taskmaster/docs/prd_estuarine.txt so parameter names, ranges, defaults, and acceptance criteria match the code and slider metadata. Edit docs/WORKFLOW.md (or the dedicated reporting section) to describe the estuarine CSV schema, key columns, PDF layouts, and any QC flags or stacked-package metadata that QA/REP rely on. Finally, add a concise summary of these estuarine documentation and workflow updates to the appropriate docs/MEETING_RECAP_*.md or changelog entry, explicitly calling out which acceptance criteria from AGENTS.md are now satisfied.
-

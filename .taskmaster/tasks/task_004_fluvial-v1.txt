@@ -72,4 +72,3 @@ Create `tests/test_anastomosing.py` that centralizes unit and integration tests 
 ### Description: Refresh documentation to capture geologic rules, parameters, and notebook anchors for the anastomosing generator and its helpers.
 ### Details:
 Edit `docs/GEOLOGIC_RULES.md` to add a dedicated anastomosing section documenting `analog_image_generator.geologic_generators.anasto_paths`, `add_levees_narrow`, `make_marsh`, `seed_fans`, `compose_anasto`, and `generate_anastomosing`, including parameter ranges and geologic rationale. Update or create the appropriate notebook (e.g., `notebooks/anastomosing.ipynb`) with markdown cells containing anchors in the form `anchor-anastomosing-<principle>` that reference both code paths and rules, ensuring every implemented function has entries in both the code anchor column and the notebook anchor column. Verify that documentation stays in sync with the final implementation and that anchors conform to project conventions.
-

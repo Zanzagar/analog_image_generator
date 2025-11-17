@@ -75,4 +75,3 @@ Create tests/test_reporting.py that builds minimal yet representative metrics_ro
 ### Description: Update smoke_test.py and project docs to demonstrate invoking build_reports and describe how reporting artifacts fit into the workflow and CI.
 ### Details:
 Modify scripts/smoke_test.py to generate a tiny synthetic metrics_rows dataset (or reuse existing stats outputs), call build_reports into a temporary or configured output directory, and log locations of the CSV and PDF artifacts as part of the smoke run. Update documentation files such as docs/WORKFLOW.md and docs/CODEX_RUNBOOK.md to describe the reporting step, including expected inputs, CLI invocation patterns (e.g., from the main pipeline script or notebook), output directory structure, and how CI jobs should collect and publish the CSV and PDF artifacts. Ensure the docs reference PALETTES and QA flag semantics so users understand how to interpret the reports.
-

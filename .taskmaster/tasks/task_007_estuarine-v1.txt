@@ -40,4 +40,3 @@ Using the Phase 2 metrics and existing estuarine metadata, implement estuarine-s
 ### Description: Wire the new Phase 2 metrics and QC flags into the estuarine stats workflow, ensuring consistent dict schema, metadata reuse, and minimal recomputation.
 ### Details:
 Refactor compute_metrics and any estuarine stats helpers so Phase 2 metrics and QC flags are computed only once per run, consuming metadata and intermediate arrays produced by Tasks 2–4 (e.g., orientation histograms, shoreline traces, thickness fields) instead of recomputing masks or FFTs. Normalize metric and flag naming, update the metrics dict schema to include both raw metrics and qc_* booleans plus explanatory messages, and ensure the estuarine branch remains compatible with Phase 1 outputs so reporting and Task 9 documentation can treat Phase 1 and Phase 2 metrics uniformly.
-

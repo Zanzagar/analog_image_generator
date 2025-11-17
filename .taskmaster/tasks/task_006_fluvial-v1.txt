@@ -85,4 +85,3 @@ Create a new test module tests/test_stacked_channels.py that exercises the main 
 ### Description: Update smoke tests, GEOLOGIC_RULES, and notebooks to document stacked channel workflows, anchors, and slider mappings.
 ### Details:
 Edit scripts/smoke_test.py to include at least one small stacked configuration (e.g., 2–3 packages with mixed styles) and verify that boundary masks, package_id_map, and metadata are present and sane. Update docs/GEOLOGIC_RULES.md to describe the stacked channel package principles, including package_count, erosional_relief_px, and style mix, and add or update anchor IDs using the anchor-<env>-<principle> pattern referencing fully qualified function names like analog_image_generator.stacked_channels.build_stacked_fluvial. Ensure relevant environment notebooks under notebooks/ add markdown anchors describing the stacked workflow and slider mapping consistent with the code.
-

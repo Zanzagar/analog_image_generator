@@ -74,4 +74,3 @@ Define a clear output layout under an `outputs` or project-specific reporting di
 ### Description: Create focused tests to validate CSV headers, PDF content, and simple structural checksums for Aeolian reporting.
 ### Details:
 Introduce `tests/test_reporting_aeolian.py` to drive a minimal end-to-end Aeolian reporting run that writes CSV, per-style PDFs, and a master PDF from a small synthetic metrics dataset. Assert that CSV headers match the documented schema, PDFs are readable and contain expected labels, and optionally compute lightweight checksums or size thresholds so CI can detect accidental schema or layout regressions without relying on heavy golden files.
-

@@ -80,4 +80,3 @@ Implement the `generate_meandering(params, rng)` orchestrator in `geologic_gener
 ### Description: Add a dedicated meandering test module and minimal smoke-test wiring to validate coverage bands, oxbow statistics, shapes/dtypes, and anchor updates.
 ### Details:
 Create `tests/test_meandering.py` implementing the unit and integration tests described in previous subtasks, plus any shared helpers. Add smoke-test wiring and small fixture generation (e.g., histograms or summary stats stored under `tests/data/fixtures`) that validate overall mask coverage percentages, oxbow occurrence frequency under seeded RNG, and basic grayscale distribution stability. Include tests that indirectly verify GEOLOGIC_RULES and notebook anchor updates by checking for the presence of expected function names or anchor IDs in `docs/GEOLOGIC_RULES.md` and, if feasible, a lightweight JSON export of notebook markdown. Ensure the test suite can run quickly and deterministically.
-

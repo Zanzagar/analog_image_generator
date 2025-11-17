@@ -86,4 +86,3 @@ Review all aeolian metric helpers for unnecessary recomputation, ensure FFTs and
 ### Description: Create tests/test_aeolian_metrics.py with synthetic patterns and masks to validate metric correctness, angular tolerances, topology, histograms, and schema stability.
 ### Details:
 Implement a dedicated test module tests/test_aeolian_metrics.py that constructs synthetic gray fields (oriented stripes, isotropic noise, gradients) and masks (simple ridge and interdune patterns, cross-bedding patches) to exercise all aeolian metrics. Validate PSD orientation residuals against θ_wind within ±10°, confirm ridge continuity and interdune connectivity formulas, check that cross-bedding and overlay histograms produce nonzero, reasonable counts, and assert that the output metrics dict adheres to the defined schema. Use fixed random seeds to keep tests deterministic.
-
