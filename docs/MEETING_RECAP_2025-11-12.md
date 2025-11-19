@@ -45,3 +45,8 @@ This document now captures both the original morning recap and the additional pr
 - If the professor wants PDF/CSV artifacts soon, we still need to implement reporting generators (currently placeholders in `src/analog_image_generator/reporting.py:1`).
 
 Let me know if you want a live demo of Task Master navigation or the package build before we shift into Section 8 work.
+
+## 2025-11-19 Update
+- Stacked mode, stats pipeline, and reporting exports implemented under Task 6-9.
+- Added GEOLOGIC_RULES anchors + validation script to enforce notebook/code traceability.
+- Smoke + CI now run scripts/validate_geo_anchors.py and scripts/smoke_test.py before handoffs.

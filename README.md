@@ -36,6 +36,27 @@ pytest -q
 - Keep tasks isolated by domain tags (create when ready).
 - Parse the appropriate PRD into its tag only when actively working in Codex and after the review gate.
 
+## Interactive Demos
+- `analog_image_generator.interactive.build_sliders("fluvial")` exposes the PRD-aligned slider schema (min/max/step/default plus citations) for PR/notebook use.
+- `build_interactive_ui("fluvial")` returns the ipywidgets panel (style dropdown, stacked toggle, package mix) so notebooks and Cursor share the same UX.
+- `preview_sequence("fluvial", params, seeds)` renders mini-previews plus placeholder β/D/H metrics, while `run_param_batch` writes PNGs for QA artifacts.
+
+## Phase 1/2 Metrics
+- `analog_image_generator.stats.compute_metrics(gray, masks, env)` now returns the PRD-required fields (β_iso, β_dir_*, β_seg*, entropy, PSD anisotropy, topology, QA flags, stacked metadata hashes).
+- Lighter adapters such as `stats.preview_metrics` power the interactive panel without recomputing the full stack.
+- Scripts (e.g., `scripts/smoke_test.py`) call these helpers so CI ensures the metrics surface stays healthy alongside generators and stacked workflows.
+
+## Reporting
+- `analog_image_generator.reporting.build_reports(metrics_rows, output_dir)` writes the metrics CSV, per-environment PDFs (mosaics + histograms + tables), and merges a master PDF.
+- Reporting rows combine stats output with realization metadata (env/seed IDs, petrology flags, stacked package counts). See `scripts/smoke_test.py` for an end-to-end example that drops artifacts into `outputs/smoke_report/`.
+- Palettes/legends follow `docs/PALETTES.md`; QA flags from stats are surfaced in the summary tables and master cover.
+
+## Stacked Channel Packages
+- Fluvial calls now accept `mode="stacked"` plus `package_count`, `package_styles`, and per-package thickness/relief/erosion parameters to sequence mixed belts.
+- `stacked_channels.build_stacked_fluvial` composes stacked packages, and `generate_fluvial` routes to it automatically in stacked mode (falls back to single-belt when `package_count == 1`).
+- Downstream consumers should read the new masks (`upper_surface_mask`, `erosion_surface_mask`, `package_id_map`) and metadata stored under `masks["realization_metadata"]["stacked_packages"]`.
+- Use `package_param_overrides` for per-package tweaks (e.g., levee width for package 2) while `stack_seed` guarantees deterministic sub-seeds for the package sequence.
+
 ## CI & Repo Hygiene
 - Pre-commit enforces formatting, lint, and notebook output stripping.
 - GitHub Actions (ci.yml) runs lint and optional smoke tests.

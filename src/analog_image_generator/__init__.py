@@ -2,7 +2,9 @@
 
 from importlib import metadata
 
-__all__ = ["__version__"]
+from . import preview
+
+__all__ = ["__version__", "preview"]
 
 
 try:

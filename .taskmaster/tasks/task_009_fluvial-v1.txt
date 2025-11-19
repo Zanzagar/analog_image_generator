@@ -1,6 +1,6 @@
 # Task ID: 9
 # Title: Implement reporting pipeline (CSV, per-env PDFs, master PDF)
-# Status: pending
+# Status: done
 # Dependencies: 7, 8
 # Priority: medium
 # Description: Complete `reporting.py` to output metrics CSV, mosaics, per-environment PDF pages with histograms + tables, and master PDF with overview + appended reports.
@@ -22,25 +22,25 @@
 - Extend smoke script to run minimal batch (N=1 per env) piping through reporting and verifying outputs saved under `outputs/smoke/`.
 
 # Subtasks:
-## 1. Define metrics_rows schema and CSV column mapping [pending]
+## 1. Define metrics_rows schema and CSV column mapping [done]
 ### Dependencies: None
 ### Description: Finalize the metrics_rows list-of-dicts schema and its mapping to the reporting CSV columns defined in the PRD.
 ### Details:
 Review the PRD, stats outputs, and stacked package metadata to enumerate all required CSV columns (e.g., env, realization_id, PSD_AR, compactness, connectivity, petrology tags, stacked package metadata, QA flags). Define a canonical metrics_rows dict schema in src/analog_image_generator/reporting.py, including key names, value types, and handling of optional fields. Document the schema in code docstrings and ensure it can ingest metadata from both the stats module and stacked channel packages without ambiguity.
 
-## 2. Implement deterministic CSV export in build_reports using pandas [pending]
+## 2. Implement deterministic CSV export in build_reports using pandas [done]
 ### Dependencies: 9.1
 ### Description: Write the CSV export logic in build_reports so that it produces a stable, schema-compliant metrics CSV across runs.
 ### Details:
 In src/analog_image_generator/reporting.py, implement the first stage of build_reports to convert metrics_rows into a pandas DataFrame using the schema from subtask 1. Specify an explicit ordered list of columns to enforce deterministic column ordering and set dtypes where appropriate (e.g., numeric for metrics, boolean/string for QA flags, categorical for env). Write the CSV to output_dir (e.g., metrics.csv) with UTF-8 encoding and without index, and ensure repeated invocations with the same metrics_rows produce identical CSV byte content. Handle basic validation (e.g., missing required columns) with clear error messages suitable for CI.
 
-## 3. Implement mosaic generation helpers for grayscale, facies, legends, and stacked overlays [pending]
+## 3. Implement mosaic generation helpers for grayscale, facies, legends, and stacked overlays [done]
 ### Dependencies: 9.1
 ### Description: Create functions to generate and save per-environment mosaic images including grayscale, facies color, legends, and stacked boundary overlays.
 ### Details:
 Add helper functions in reporting.py (e.g., generate_env_mosaics or similar) that take per-environment gray arrays, facies masks, palette IDs, and stacked package boundary metadata to produce PNG mosaics using Matplotlib or Pillow. Implement side-by-side or grid layouts for grayscale and facies-color views, apply colors from docs/PALETTES.md in the documented legend order, and render legends that match the palette definitions. Overlay stacked boundary masks when present (e.g., semi-transparent lines or filled regions) and save deterministic filenames (e.g., mosaics/{env}_gray.png, {env}_facies.png, {env}_stacked.png) under output_dir, returning paths for later PDF embedding.
 
-## 4. Implement per-environment PDF page generation with mosaics, histograms, and summary tables [pending]
+## 4. Implement per-environment PDF page generation with mosaics, histograms, and summary tables [done]
 ### Dependencies: 9.2, 9.3
 ### Description: Use ReportLab to build per-environment PDFs that embed mosaics, β/D histograms, and metrics summary tables including QA flags.
 ### Details:

@@ -1,6 +1,6 @@
 # Task ID: 10
 # Title: Ensure traceability, automation, and Task Master gating
-# Status: pending
+# Status: done
 # Dependencies: 2, 3, 4, 5, 6, 7, 8, 9
 # Priority: medium
 # Description: Wire documentation, notebooks, and CI/smoke automation so every principle maps to code and Task Master enforces non-regression.
@@ -18,25 +18,25 @@
 - Manual validation: run Task Master commands locally (list/next/expand) ensuring no transport errors, capture logs for QA sign-off.
 
 # Subtasks:
-## 1. Inventory new generator/stacked/stats/reporting functions for GEOLOGIC_RULES mapping [pending]
+## 1. Inventory new generator/stacked/stats/reporting functions for GEOLOGIC_RULES mapping [done]
 ### Dependencies: None
 ### Description: Scan the codebase to identify all newly added or changed functions in generators, stacked channel packages, statistics, and reporting that must appear in GEOLOGIC_RULES.md with code and notebook anchors.
 ### Details:
 Search under src/analog_image_generator (e.g., geologic_generators, stacked_channels, stats, reporting modules) and compile a structured list of fully qualified function names, their purpose, and associated environment/principle labels. Capture this inventory in a temporary markdown or JSON helper file that will drive updates to docs/GEOLOGIC_RULES.md and notebook anchors.
 
-## 2. Update docs/GEOLOGIC_RULES.md with rows and code/notebook anchors for all new functions [pending]
+## 2. Update docs/GEOLOGIC_RULES.md with rows and code/notebook anchors for all new functions [done]
 ### Dependencies: 10.1
 ### Description: Extend GEOLOGIC_RULES.md so every inventoried function has a table row with fully qualified code anchor and corresponding notebook anchor IDs following the agreed conventions.
 ### Details:
 Using the inventory from subtask 1, add or update rows in docs/GEOLOGIC_RULES.md for generators, stacked channel builders, stats, and reporting functions. Ensure each row includes: environment, principle, fully qualified code anchor (e.g., analog_image_generator.geologic_generators.meander_centerline), and one or more notebook anchors using the anchor-<env>-<principle> naming scheme that will be implemented in the v20 notebooks.
 
-## 3. Align notebook markdown anchors in v20 notebooks with GEOLOGIC_RULES conventions [pending]
+## 3. Align notebook markdown anchors in v20 notebooks with GEOLOGIC_RULES conventions [done]
 ### Dependencies: 10.2
 ### Description: Update markdown anchor cells in notebooks/v20a_interactive_rebuild.ipynb and v20_complete_analysis.ipynb so they follow the anchor-<env>-<principle> naming pattern and match the GEOLOGIC_RULES code anchor mapping.
 ### Details:
 Open notebooks/v20a_interactive_rebuild.ipynb and notebooks/v20_complete_analysis.ipynb, locate existing markdown anchors describing geologic principles, and normalize them to the anchor-<env>-<principle> format referenced from GEOLOGIC_RULES.md. Where needed, add or adjust markdown cells so each principle row in GEOLOGIC_RULES has at least one corresponding notebook anchor, and ensure any old anchor names are updated consistently across links or references in the notebooks.
 
-## 4. Implement doc-anchor validation script for GEOLOGIC_RULES and notebooks [pending]
+## 4. Implement doc-anchor validation script for GEOLOGIC_RULES and notebooks [done]
 ### Dependencies: 10.2, 10.3
 ### Description: Create or update a validation script that parses GEOLOGIC_RULES.md, resolves each code anchor into a callable object, and verifies that each referenced notebook anchor exists in the v20 notebooks.
 ### Details:

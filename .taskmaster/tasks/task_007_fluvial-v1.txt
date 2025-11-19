@@ -1,6 +1,6 @@
 # Task ID: 7
 # Title: Build ipywidgets sliders, previews, and param batch (Interactive v20a)
-# Status: pending
+# Status: done
 # Dependencies: 2, 3, 4, 6
 # Priority: medium
 # Description: Implement `interactive.py` to expose slider schemas per env, render sequential previews, show live β/D/H, and save lightweight param batches.
@@ -19,19 +19,19 @@
 - Manual notebook smoke: run `v20a_interactive_rebuild.ipynb` to confirm live β/D/H updates; capture screenshot for documentation.
 
 # Subtasks:
-## 1. Design slider schema and implement build_sliders(env) in interactive.py [pending]
+## 1. Design slider schema and implement build_sliders(env) in interactive.py [done]
 ### Dependencies: None
 ### Description: Define a structured slider configuration schema and implement build_sliders(env) to return environment-specific slider definitions.
 ### Details:
 In src/analog_image_generator/interactive.py, define a clear Python data structure (e.g., TypedDict or dataclass plus plain dicts) for slider configs with fields: name/key, label, min, max, step, default, units, source, citation_ids, and any env tags. Implement build_sliders(env: str) to return an ordered mapping of parameter keys to these config dicts for each supported env (e.g., meandering, braided, anastomosing, stacked). Seed initial ranges and defaults from the current PRD tables and research PDFs summaries (using existing constants or helper modules if available), but keep lookup logic separated so values can later be regenerated from a single source of truth. Ensure build_sliders is pure (no widget construction) and safe to call in tests and non-notebook contexts.
 
-## 2. Implement ipywidgets-based UI factory using slider configs [pending]
+## 2. Implement ipywidgets-based UI factory using slider configs [done]
 ### Dependencies: 7.1
 ### Description: Create composable ipywidgets UI components for sliders, seed input, stacked toggle, and package mix selectors.
 ### Details:
 In interactive.py, add a function such as build_interactive_ui(env: str) or build_controls(env: str, slider_configs: Mapping) that uses ipywidgets (IntSlider, FloatSlider, Text/IntText, ToggleButtons/Checkbox, SelectMultiple, Button, etc.) to construct the interactive control panel. Map each slider config from build_sliders(env) to a corresponding widget, wiring labels, ranges, defaults, units in descriptions, and tooltip text from source/citation metadata. Include additional widgets for RNG seed input, stacked vs single-belt toggle, package_count and package mix multi-select controls, and a Preview button. Return a structured object (e.g., a dataclass or dict) containing both the widgets and a top-level VBox/HBox layout so notebooks can embed the panel easily without tightly coupling to notebook code.
 
-## 3. Implement preview_sequence(env, params, seeds) with generator/stacked integration [pending]
+## 3. Implement preview_sequence(env, params, seeds) with generator/stacked integration [done]
 ### Dependencies: 7.1, 7.2
 ### Description: Wire preview_sequence to call the appropriate generators, capture intermediate artifacts, and return an ipywidgets layout of preview images.
 ### Details:

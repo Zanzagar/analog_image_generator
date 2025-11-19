@@ -34,7 +34,9 @@ jobs:
       - name: Tests
         run: |
           pytest -q
+      - name: Validate GEOLOGIC_RULES anchors
+        run: |
+          python scripts/validate_geo_anchors.py
       - name: Smoke
-        continue-on-error: true
         run: |
           python scripts/smoke_test.py

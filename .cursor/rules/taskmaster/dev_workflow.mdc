@@ -422,3 +422,4 @@ Once a task has been broken down into subtasks using `expand_task` or similar me
 
 ---
 *This workflow provides a general guideline. Adapt it based on your specific project needs and team practices.*
+- When implementing with Task Master, do not run `task-master next` until `task-master list --with-subtasks --status pending` shows no pending subtasks for the current task. Finish or log each subtask first so downstream dependencies remain accurate.

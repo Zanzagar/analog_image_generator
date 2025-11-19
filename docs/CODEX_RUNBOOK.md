@@ -81,6 +81,7 @@ gh pr create --fill
 task-master parse-prd .taskmaster/docs/prd.txt --tag fluvial-v1
 task-master parse-prd .taskmaster/docs/prd_aeolian.txt --tag aeolian-v1
 task-master parse-prd .taskmaster/docs/prd_estuarine.txt --tag estuarine-v1
+# Record the tag + command transcript in the PRD + recap so QA can verify gating.
 ```
 
 6) Analyze complexity and expand (terminal; per tag)
@@ -93,6 +94,7 @@ task-master expand --all --tag aeolian-v1
 
 task-master analyze-complexity --tag estuarine-v1 --research
 task-master expand --all --tag estuarine-v1
+# Rerun this block whenever a PRD changes, and attach the terminal log to the next recap.
 ```
 
 7) Package‑first restructure (immediately after switching; not earlier) (terminal)
@@ -127,6 +129,8 @@ In Codex:
 # apply changes; then log and mark
 pytest -q
 pre-commit run --all-files
+scripts/validate_geo_anchors.py
+scripts/smoke_test.py
 task-master update-subtask --id <id> --prompt "Implemented X; tests pass; notes: ..."
 task-master set-status --id <id> --status=done
 git add -A && git commit -m "feat(module): implement <subtask title>" && git push
