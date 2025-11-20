@@ -42,6 +42,14 @@ def test_run_param_batch(tmp_path):
 def test_slider_state_collects_defaults():
     panel = interactive.build_interactive_ui("fluvial")
     state = interactive.slider_state(panel)
+    assert state["height"] > 0
+    assert state["width"] > 0
+    assert state["seed"] == panel.widgets["seed"].value
+
+
+def test_slider_state_collects_defaults():
+    panel = interactive.build_interactive_ui("fluvial")
+    state = interactive.slider_state(panel)
     # basic keys should be present
     assert state["height"] > 0
     assert state["width"] > 0
