@@ -3919,17 +3919,18 @@
           "4",
           "5"
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
             "title": "Integrate preset execution loop in fluvial_stats notebook",
             "description": "Add notebook cells looping through baseline, extreme, and stacked presets using the Task 3 run helper to gather gray images and masks.",
             "dependencies": [],
-            "details": "Create a results accumulator, call run_fluvial_case(params) for each preset, capture seeds/metadata, and store gray plus masks for downstream metrics and visualizations while referencing GEOLOGIC_RULES anchors in markdown.",
-            "status": "pending",
+            "details": "Create a results accumulator, call run_fluvial_case(params) for each preset, capture seeds/metadata, and store gray plus masks for downstream metrics and visualizations while referencing GEOLOGIC_RULES anchors in markdown.\n<info added on 2025-11-20T19:39:43.938Z>\nNotebook cell 8 in notebooks/fluvial_stats.ipynb now defines BASELINE_MEANDER, EXTREME_SINUOSITY, and STACKED_PACKAGE_SWEEP presets sourced from gg._MEANDER_DEFAULTS, cell 9 adds run_fluvial_case() that toggles gg.generate_fluvial vs sc.build_stacked_fluvial while capturing metadata/variograms/PSD, and cell 10 loops PRESET_DEFINITIONS so RUN_RESULTS collects the three realizations before the metrics_df aggregation drives ag_stats.compute_metrics for the PSD/β comparisons.\n</info added on 2025-11-20T19:39:43.938Z>",
+            "status": "done",
             "testStrategy": "Execute the new loop cell to confirm three realizations complete without errors and persist intermediate outputs for later cells.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:39:50.882Z"
           },
           {
             "id": 2,
@@ -3938,10 +3939,11 @@
             "dependencies": [
               1
             ],
-            "details": "Iterate through loop outputs, call stats.compute_metrics(gray, masks, env=\"fluvial\"), merge preset names, Phase tags, PSD/variogram/topology fields, and stacked metadata, then cache both JSON-like structures and tabular form for reuse across plots and summary tables.",
-            "status": "pending",
+            "details": "Iterate through loop outputs, call stats.compute_metrics(gray, masks, env=\"fluvial\"), merge preset names, Phase tags, PSD/variogram/topology fields, and stacked metadata, then cache both JSON-like structures and tabular form for reuse across plots and summary tables.\n<info added on 2025-11-20T19:40:45.594Z>\nLoop over the three RUN_RESULTS entries (baseline_meander, extreme_meander, stacked_packages) in notebooks/fluvial_stats.ipynb, call ag_stats.compute_metrics for each, append dictionaries that merge preset, mode, and inferred Phase labels with every flattened payload from src/analog_image_generator/stats.py (beta_iso, beta_dir_*, beta_seg*, h0, psd_aspect/theta, entropy_global, fractal_dimension, topology_* fields, qa_* flags, stacked_package_count), and hydrate a single `metrics_df = pd.DataFrame.from_records(metrics_rows)` that downstream β_dir vs β_iso plots, PSD views, QA summaries, and exports all reference; keep both metrics_rows and metrics_df cached in notebook scope (and optional JSON dump) so later cells never recompute metrics.\n</info added on 2025-11-20T19:40:45.594Z>",
+            "status": "done",
             "testStrategy": "Add quick asserts in the notebook verifying expected metric keys exist per row and display the head of the aggregated table to ensure correct formatting.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:40:52.195Z"
           },
           {
             "id": 3,
@@ -3950,10 +3952,11 @@
             "dependencies": [
               2
             ],
-            "details": "Use matplotlib/plotly helpers to overlay PSD curves for direction/isotropic spectra, annotate beta values, add markdown interpreting anisotropy behavior relative to PRD requirements, and link to the proper GEOLOGIC_RULES anchors.",
-            "status": "pending",
+            "details": "Use matplotlib/plotly helpers to overlay PSD curves for direction/isotropic spectra, annotate beta values, add markdown interpreting anisotropy behavior relative to PRD requirements, and link to the proper GEOLOGIC_RULES anchors.\n<info added on 2025-11-20T19:41:40.946Z>\nDocumented that `notebooks/fluvial_stats.ipynb#anchor-fluvial-variogram` now caches `variogram = ag_stats.compute_variogram(configure_gray(analog), VARIO_DIRECTIONS)` within `run_fluvial_case`, and the plotting cell immediately after the `metrics_df` build overlays each preset’s isotropic vs directional curves with per-panel `β_iso` text pulled from `metrics_df.loc[...]` so PSD anisotropy context is shown next to the spectra. Added the follow-on delta section that melts the `beta_dir_*` columns into `long_df`, computes `delta = beta_dir - beta_iso`, and draws the β_dir−β_iso line chart per preset, giving explicit annotations of the anisotropy deltas before the QA scatter discussion.\n</info added on 2025-11-20T19:41:40.946Z>",
+            "status": "done",
             "testStrategy": "Render the PSD figures in the notebook, verifying annotations appear and that curve legends distinguish presets and orientations clearly.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:41:46.858Z"
           },
           {
             "id": 4,
@@ -3962,10 +3965,11 @@
             "dependencies": [
               2
             ],
-            "details": "Create a plotting cell that encodes QA flag state via color/markers, overlays stacked vs single-belt presets, and includes inline markdown discussing observed trends and how QA flags should be interpreted for reporting feeds.",
-            "status": "pending",
+            "details": "Create a plotting cell that encodes QA flag state via color/markers, overlays stacked vs single-belt presets, and includes inline markdown discussing observed trends and how QA flags should be interpreted for reporting feeds.\n<info added on 2025-11-20T19:42:21.052Z>\nAdded a β_iso vs fractal_dimension scatter cell in notebooks/fluvial_stats.ipynb where metrics_df rows are colored by qa_psd_anisotropy_warning, preset names are annotated directly on the points to distinguish stacked versus single runs, and the inline table metrics_df[[preset, h0, qa_psd_anisotropy_warning, qa_channel_area_warning]] surfaces the H intercept and QA columns so reviewers can correlate β/D/H and flag states without leaving the plot context.\n</info added on 2025-11-20T19:42:21.052Z>",
+            "status": "done",
             "testStrategy": "Display the scatter plot and confirm tooltips/legends highlight QA-flagged runs; spot-check values against the aggregated metrics table.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:42:28.641Z"
           },
           {
             "id": 5,
@@ -3983,7 +3987,8 @@
         ],
         "complexity": 7,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Update `notebooks/fluvial_stats.ipynb` to iterate over multiple presets (baseline, extreme, stacked) using the run helper from Task 3, call `stats.compute_metrics` for each, and visualize PSD anisotropy curves plus β_dir vs β_iso comparisons. Produce β/D/H scatter plots, highlight QA flags, and summarize Phase 1 vs Phase 2 metrics in tables tied back to GEOLOGIC_RULES anchors. Validate by executing the notebook end-to-end and running `pytest tests/test_stats.py` (and any PSD-focused subsets)."
+        "expansionPrompt": "Update `notebooks/fluvial_stats.ipynb` to iterate over multiple presets (baseline, extreme, stacked) using the run helper from Task 3, call `stats.compute_metrics` for each, and visualize PSD anisotropy curves plus β_dir vs β_iso comparisons. Produce β/D/H scatter plots, highlight QA flags, and summarize Phase 1 vs Phase 2 metrics in tables tied back to GEOLOGIC_RULES anchors. Validate by executing the notebook end-to-end and running `pytest tests/test_stats.py` (and any PSD-focused subsets).",
+        "updatedAt": "2025-11-20T19:42:28.641Z"
       },
       {
         "id": "10",
@@ -4086,7 +4091,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T19:34:25.207Z",
+      "lastModified": "2025-11-20T19:42:28.645Z",
       "taskCount": 10,
       "completedCount": 8,
       "tags": [
