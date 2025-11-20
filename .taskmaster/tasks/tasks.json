@@ -4009,17 +4009,18 @@
           "8",
           "9"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Audit reporting notebook baseline and smoke artifacts",
             "description": "Open `notebooks/reporting.ipynb` plus `outputs/smoke_report/` to capture current metrics, report cells, and automation notes that must be refreshed for the new workflow.",
             "dependencies": [],
-            "details": "Review existing notebook sections, note where metrics_rows are built, confirm how `analog_image_generator.reporting.build_reports` is (or isn’t) invoked, and document required updates so later edits can reference Task Master tag `fluvial-v1`.",
-            "status": "pending",
+            "details": "Review existing notebook sections, note where metrics_rows are built, confirm how `analog_image_generator.reporting.build_reports` is (or isn’t) invoked, and document required updates so later edits can reference Task Master tag `fluvial-v1`.\n<info added on 2025-11-20T20:08:01.597Z>\nAudit complete: notebooks/reporting.ipynb now carries the anchors block (anchor-reporting-pipeline/anchor-reporting-mosaics referencing analog_image_generator.reporting.build_reports) plus a demo-ready checklist, and smoke artifacts are confirmed in outputs/smoke_report/ (csv + per-env PDFs + master PDF) for baseline parity.\n</info added on 2025-11-20T20:08:01.597Z>",
+            "status": "done",
             "testStrategy": "Manually step through the current notebook to ensure cells execute and note any failing cells before modification.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T20:08:11.281Z"
           },
           {
             "id": 2,
@@ -4028,10 +4029,11 @@
             "dependencies": [
               1
             ],
-            "details": "Add code and markdown cells showing the metrics construction pipeline, invocation of `analog_image_generator.reporting.build_reports`, and inline previews (CSV head, PDF embed) while referencing `fluvial-v1` for traceability and highlighting pseudo-code automation commands.",
-            "status": "pending",
+            "details": "Add code and markdown cells showing the metrics construction pipeline, invocation of `analog_image_generator.reporting.build_reports`, and inline previews (CSV head, PDF embed) while referencing `fluvial-v1` for traceability and highlighting pseudo-code automation commands.\n<info added on 2025-11-20T20:11:40.471Z>\nAdd to notebooks/reporting.ipynb: construct fresh metrics_rows for both a baseline meander and stacked mixture using gg.generate_fluvial vs gg.build_stacked_fluvial with build_row (ag_stats.compute_metrics → reporting.CSV_COLUMNS, env fluvial), then call reporting.build_reports(metrics_rows, Path(\"outputs/reporting_demo/fluvial-v1-demo\")), print the artifacts manifest, and display both a CSV head and embedded PDF preview; include a markdown cell summarizing artifact metadata/anchors (e.g., anchor-reporting-pipeline/anchor-reporting-mosaics) and tag the demo explicitly as fluvial-v1 for traceability.\n</info added on 2025-11-20T20:11:40.471Z>",
+            "status": "done",
             "testStrategy": "Run the updated notebook end-to-end to confirm artifacts are generated in the demo directory and inspect CSV/PDF previews render without errors.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T20:11:46.903Z"
           },
           {
             "id": 3,
@@ -4040,10 +4042,11 @@
             "dependencies": [
               2
             ],
-            "details": "Edit both documents so the narrative matches the revised reporting notebook, highlight commands (`pytest`, `python scripts/validate_geo_anchors.py`, `python scripts/smoke_test.py`), and ensure every new section cites the `fluvial-v1` tag plus mentions `outputs/smoke_report/`.",
-            "status": "pending",
+            "details": "Edit both documents so the narrative matches the revised reporting notebook, highlight commands (`pytest`, `python scripts/validate_geo_anchors.py`, `python scripts/smoke_test.py`), and ensure every new section cites the `fluvial-v1` tag plus mentions `outputs/smoke_report/`.\n<info added on 2025-11-20T20:12:16.927Z>\nRevise docs/WORKFLOW.md reporting exports to require running `jupyter nbconvert --to notebook --inplace --execute notebooks/reporting.ipynb` so `outputs/reporting_demo/fluvial-v1-demo/` demo artifacts regenerate before attaching refreshed CSV/PDF deliverables (cite fluvial-v1 and note smoke_report parity).\n</info added on 2025-11-20T20:12:16.927Z>",
+            "status": "done",
             "testStrategy": "Review rendered Markdown (via markdown preview or `mdformat --check` if available) and manually verify all command snippets render correctly and reference the right files.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T20:12:24.166Z"
           },
           {
             "id": 4,
@@ -4052,10 +4055,11 @@
             "dependencies": [
               2
             ],
-            "details": "Add a pre-demo checklist, embed the provided pseudo-code snippet, ensure `fluvial-v1` tagging is explicit, and mention the tentative `make demo-check` helper so operators have a single command path.",
-            "status": "pending",
+            "details": "Add a pre-demo checklist, embed the provided pseudo-code snippet, ensure `fluvial-v1` tagging is explicit, and mention the tentative `make demo-check` helper so operators have a single command path.\n<info added on 2025-11-20T20:13:06.617Z>\nAdded Codex-Max demo-ready automation block in docs/CODEX_RUNBOOK.md covering `python -m pytest`, `python scripts/validate_geo_anchors.py`, `python scripts/smoke_test.py`, and `jupyter nbconvert --to notebook --inplace --execute notebooks/reporting.ipynb`, reinforcing fluvial-v1 tagging and the optional `make demo-check` single-command path before demos.\n</info added on 2025-11-20T20:13:06.617Z>",
+            "status": "done",
             "testStrategy": "Lint or preview the runbook file to ensure formatting remains consistent (e.g., `markdownlint` if available) and double-check command blocks copy-paste cleanly.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T20:13:19.584Z"
           },
           {
             "id": 5,
@@ -4065,10 +4069,11 @@
               3,
               4
             ],
-            "details": "Populate sections covering context, decisions, action items, and automation reminders (pytest, validate_geo_anchors, smoke_test) so stakeholders see the refreshed workflow and reporting outputs.",
-            "status": "pending",
+            "details": "Populate sections covering context, decisions, action items, and automation reminders (pytest, validate_geo_anchors, smoke_test) so stakeholders see the refreshed workflow and reporting outputs.\n<info added on 2025-11-20T20:13:46.127Z>\nAdded meeting recap entry in docs/MEETING_RECAP_2025-11-20.md capturing fluvial demo readiness (Tasks 1–9 done, Task 10 docs/reporting still in-flight), Codex default set to gpt-5.1-codex-max, reporting artifacts paths at outputs/reporting_demo/fluvial-v1-demo/ and outputs/smoke_report/, and remaining doc/automation tasks (close Task 10, attach CSV/PDFs, rerun pytest + scripts/validate_geo_anchors.py + scripts/smoke_test.py + nbconvert on notebooks/reporting.ipynb).\n</info added on 2025-11-20T20:13:46.127Z>",
+            "status": "done",
             "testStrategy": "Spell-check or read-through the recap to confirm all required sections are filled and links/paths point to the correct notebook/docs entries.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T20:13:54.894Z"
           },
           {
             "id": 6,
@@ -4079,23 +4084,24 @@
               3,
               4
             ],
-            "details": "Update relevant Makefile or documentation snippets to describe the helper target, confirm notebook markdown mentions the commands, and ensure links back to Task Master automation requirements and `outputs/smoke_report/` parity.",
-            "status": "pending",
+            "details": "Update relevant Makefile or documentation snippets to describe the helper target, confirm notebook markdown mentions the commands, and ensure links back to Task Master automation requirements and `outputs/smoke_report/` parity.\n<info added on 2025-11-20T20:15:03.625Z>\nAdded a demo-check helper note spanning the Makefile and docs/CODEX_RUNBOOK.md with the exact chain pytest -q → python scripts/validate_geo_anchors.py → python scripts/smoke_test.py (outputs/smoke_report) → jupyter nbconvert --to notebook --inplace --execute notebooks/reporting.ipynb, and mirrored the requirement inside reporting.ipynb markdown so fluvial-v1 demo presenters must run it before sharing artifacts and stay aligned with Task Master automation expectations.\n</info added on 2025-11-20T20:15:03.625Z>",
+            "status": "done",
             "testStrategy": "Invoke `make demo-check` (or dry-run if new) to ensure the commands chain correctly, or manually run listed commands to validate instructions match actual behavior.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T20:15:11.193Z"
           }
         ],
         "complexity": 8,
         "recommendedSubtasks": 6,
         "expansionPrompt": "Refresh `notebooks/reporting.ipynb` to showcase building `metrics_rows` and invoking `analog_image_generator.reporting.build_reports`, then update `README.md`, `docs/WORKFLOW.md`, `docs/CODEX_RUNBOOK.md`, and the latest meeting recap (copy `docs/MEETING_RECAP_TEMPLATE.md`) with the new demo workflow, automation checklist, and Task Master references. Document commands such as `pytest`, `python scripts/validate_geo_anchors.py`, `python scripts/smoke_test.py`, and optionally add a `make demo-check` helper. Ensure every update references the `fluvial-v1` tag for traceability and aligns with the reporting artifacts saved under `outputs/smoke_report/`.",
-        "updatedAt": "2025-11-20T19:57:22.965Z"
+        "updatedAt": "2025-11-20T20:15:11.193Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T19:57:22.969Z",
+      "lastModified": "2025-11-20T20:15:11.197Z",
       "taskCount": 10,
-      "completedCount": 9,
+      "completedCount": 10,
       "tags": [
         "fluvial-v1-demo"
       ]

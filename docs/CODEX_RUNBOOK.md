@@ -151,3 +151,10 @@ git init && git add -A && git commit -m "chore: scaffold from template"
 Notes
 - Do not run Task Master until PRDs are approved (professor + Codex review gate).
 - Update README badge to real <OWNER>/<REPO> before first push.
+
+## Demo-ready checklist (Codex quick run)
+- Validate code/tests: `python -m pytest`
+- Sync anchors: `python scripts/validate_geo_anchors.py`
+- Smoke + artifacts: `python scripts/smoke_test.py`
+- Regenerate reporting demo: `jupyter nbconvert --to notebook --inplace --execute notebooks/reporting.ipynb` (artifacts in `outputs/reporting_demo/`)
+- Commit/push + Task Master status updates before presenting

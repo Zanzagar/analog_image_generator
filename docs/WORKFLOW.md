@@ -53,6 +53,7 @@ Use Cursor to author PRDs and AGENTS.md first, set up GitHub hygiene (CI, templa
 - Reporting rows combine `compute_metrics` output with realization metadata (env, realization_id, seed, petrology tags, stacked package counts) before calling `analog_image_generator.reporting.build_reports`.
 - The helper writes the canonical CSV, per-env PDFs (mosaic thumbnails + β/D histograms + summary table), and a merged `master_report.pdf`. Palettes reference `docs/PALETTES.md` and QA flags are surfaced in the summary table on each PDF.
 - `scripts/smoke_test.py` already exercises the pipeline and writes artifacts to `outputs/smoke_report/`; replicate that flow for milestone deliverables (batch run → metrics → build_reports → attach CSV/PDFs to PR).
+- For demos, execute `jupyter nbconvert --to notebook --inplace --execute notebooks/reporting.ipynb` to regenerate `outputs/reporting_demo/fluvial-v1-demo/`, then attach CSV/PDF artifacts along with the smoke outputs.
 
 5) QA & Release
 - Run smoke tests.
