@@ -32,12 +32,18 @@ def _make_slider_widget(
     info_text = cfg.get("description", "")
     info_icon = widgets.Button(
         icon="info",
-        tooltip=info_text,
+        tooltip=info_text or "No description",
         button_style="",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 2px", margin="0 0 0 6px"),
-        disabled=True,
+        layout=widgets.Layout(
+            width="28px",
+            height="28px",
+            padding="0px 2px",
+            margin="0 0 0 6px",
+            display="inline-flex",
+        ),
     )
     info_icon.style.button_color = "#f5f5f5"
+    info_icon.on_click(lambda *_: None)  # no-op to prevent side effects
     row = widgets.HBox(
         [slider, info_icon],
         layout=widgets.Layout(align_items="center", width="100%"),
