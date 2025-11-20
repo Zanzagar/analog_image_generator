@@ -122,6 +122,9 @@ def build_live_fluvial_panel(
         groups = style_groups_map.get(style_key, ["general"])
         if mode_toggle.value == "stacked":
             groups = list(groups) + ["stacked"]
+            package_mix.layout.display = "flex"
+        else:
+            package_mix.layout.display = "none"
         for g in groups:
             if g in group_boxes:
                 group_boxes[g].layout.display = "block"
