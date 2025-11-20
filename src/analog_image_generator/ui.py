@@ -232,10 +232,6 @@ def build_live_fluvial_panel(
                 hist = _batch_hist_widget(df)
                 if hist is not None:
                     display(hist)
-                grid = _image_grid_widget(batch_images_cache.get(batch_grid_mode.value, []), labels)
-                if grid is not None:
-                    display(Markdown("**Batch composite grid**"))
-                    display(grid)
             else:
                 print("No batch frames produced.")
         render_batch_grid()
