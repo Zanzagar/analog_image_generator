@@ -3919,7 +3919,7 @@
           "4",
           "5"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3979,16 +3979,17 @@
               3,
               4
             ],
-            "details": "Use pandas styling or markdown tables to contrast metrics per phase, add commentary tying outputs to anchors and reporting requirements, then run the notebook end-to-end followed by pytest tests/test_stats.py (and PSD-focused subsets) to ensure reproducibility.",
-            "status": "pending",
+            "details": "Use pandas styling or markdown tables to contrast metrics per phase, add commentary tying outputs to anchors and reporting requirements, then run the notebook end-to-end followed by pytest tests/test_stats.py (and PSD-focused subsets) to ensure reproducibility.\n<info added on 2025-11-20T19:56:43.066Z>\nAdded a “Phase 1 vs Phase 2 summary” section in notebooks/fluvial_stats.ipynb that builds phase_group = metrics_df.groupby(\"phase\")[beta_iso, psd_aspect, entropy_global, fractal_dimension, topology_channel_area_fraction].agg([\"mean\", \"std\"]) with anchors noted (anchor-fluvial-metrics, anchor-fluvial-variogram, anchor-fluvial-psd-topology) and validation commentary; executed the stats notebook end-to-end and exported metrics_df to outputs/stats/fluvial-demo/fluvial_metrics_table.csv for reporting/Task Master ingestion.\n</info added on 2025-11-20T19:56:43.066Z>",
+            "status": "done",
             "testStrategy": "Execute the entire notebook without interruption, export updated outputs if needed, and run `pytest tests/test_stats.py` (plus `python -m pytest tests -k psd` if available) to confirm changes introduce no regressions.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:56:48.449Z"
           }
         ],
         "complexity": 7,
         "recommendedSubtasks": 5,
         "expansionPrompt": "Update `notebooks/fluvial_stats.ipynb` to iterate over multiple presets (baseline, extreme, stacked) using the run helper from Task 3, call `stats.compute_metrics` for each, and visualize PSD anisotropy curves plus β_dir vs β_iso comparisons. Produce β/D/H scatter plots, highlight QA flags, and summarize Phase 1 vs Phase 2 metrics in tables tied back to GEOLOGIC_RULES anchors. Validate by executing the notebook end-to-end and running `pytest tests/test_stats.py` (and any PSD-focused subsets).",
-        "updatedAt": "2025-11-20T19:42:28.641Z"
+        "updatedAt": "2025-11-20T19:56:48.449Z"
       },
       {
         "id": "10",
@@ -4091,9 +4092,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T19:42:28.645Z",
+      "lastModified": "2025-11-20T19:56:48.453Z",
       "taskCount": 10,
-      "completedCount": 8,
+      "completedCount": 9,
       "tags": [
         "fluvial-v1-demo"
       ]
