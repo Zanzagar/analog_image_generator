@@ -6,6 +6,7 @@ from typing import Iterable, Mapping, Sequence
 
 import ipywidgets as widgets
 import pandas as pd
+import numpy as np
 from IPython.display import Markdown, display
 
 from . import interactive
@@ -170,6 +171,9 @@ def build_live_fluvial_panel(
         seeds = [int(batch_start_seed.value) + i for i in range(int(batch_count.value))]
         params = current_params()
         rows = []
+        thumbs: list[np.ndarray] = []
+        labels: list[str] = []
+        generator = interactive._resolve_generator("fluvial")
         for seed in seeds:
             params_seed = dict(params)
             params_seed["seed"] = seed
@@ -177,6 +181,11 @@ def build_live_fluvial_panel(
             if not preview.frames:
                 continue
             rows.append({"seed": seed, **preview.frames[0]["metrics"]})
+            # Collect a color thumbnail for the grid
+            analog, masks = generator(params_seed)
+            color = interactive._colorize_masks("fluvial", masks, analog.shape)
+            thumbs.append(color)
+            labels.append(f"seed {seed}")
         with batch_output:
             batch_output.clear_output()
             if rows:
@@ -191,6 +200,10 @@ def build_live_fluvial_panel(
                 hist = _batch_hist_widget(df)
                 if hist is not None:
                     display(hist)
+                grid = _image_grid_widget(thumbs, labels)
+                if grid is not None:
+                    display(Markdown("**Batch composite grid**"))
+                    display(grid)
             else:
                 print("No batch frames produced.")
 
@@ -270,3 +283,31 @@ def _batch_hist_widget(df: pd.DataFrame):
     plt.close(fig)
     buf.seek(0)
     return widgets.Image(value=buf.read(), format="png", width=200 * n, height=180)
+
+
+def _image_grid_widget(images: list[np.ndarray], labels: list[str]) -> widgets.Image | None:
+    """Render a grid of color composites from batch runs."""
+
+    if not images:
+        return None
+    import io
+    from math import ceil, sqrt
+    from matplotlib import pyplot as plt
+
+    n = len(images)
+    cols = int(ceil(sqrt(n)))
+    rows = int(ceil(n / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows), dpi=100)
+    axes = np.array(axes).reshape(rows, cols)
+    for idx, ax in enumerate(axes.flat):
+        ax.axis("off")
+        if idx >= n:
+            continue
+        ax.imshow(np.clip(images[idx], 0.0, 1.0))
+        ax.set_title(labels[idx], fontsize=9)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    plt.close(fig)
+    buf.seek(0)
+    return widgets.Image(value=buf.read(), format="png")
