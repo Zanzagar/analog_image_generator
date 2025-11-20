@@ -94,6 +94,7 @@ def build_live_fluvial_panel(
         options=["Meandering", "Braided", "Anastomosing"],
         value=("Meandering", "Braided"),
         description="Pkg mix",
+        layout=widgets.Layout(display="none"),
     )
     seed_box = widgets.IntText(value=42, description="Seed")
     auto_run_toggle = widgets.Checkbox(value=auto_run, description="Auto-run on change")
