@@ -150,6 +150,9 @@ def build_live_fluvial_panel(
         return params
 
     def render_preview(*_):
+        if state["running"]:
+            state["pending"] = True
+            return
         state["running"] = True
         status.value = "<b>Running…</b>"
         try:
