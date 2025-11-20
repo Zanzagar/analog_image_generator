@@ -878,9 +878,13 @@ def _make_preview_row(
     color_img = _array_to_image_widget(color, cmap=None, width=width, height=height)
     channel_img = _array_to_image_widget(channel_mask, cmap="gray", width=width, height=height)
     variogram_img = _variogram_plot_widget(analog, metrics)
+    legend_widget = _palette_legend_widget("fluvial")
 
     analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
-    color_box = ipw.VBox([ipw.HTML("<b>Facies composite</b>"), color_img], layout=ipw.Layout(align_items="center"))
+    color_box = ipw.VBox(
+        [ipw.HTML("<b>Facies composite</b>"), color_img, legend_widget],
+        layout=ipw.Layout(align_items="center"),
+    )
     channel_box = ipw.VBox([ipw.HTML("<b>Channel mask</b>"), channel_img], layout=ipw.Layout(align_items="center"))
     variogram_box = ipw.VBox(
         [ipw.HTML("<b>Variogram (log-log)</b>"), variogram_img],
@@ -948,6 +952,25 @@ def _variogram_plot_widget(gray: np.ndarray, metrics: Mapping[str, float]) -> ip
     plt.close(fig)
     buf.seek(0)
     return ipw.Image(value=buf.read(), format="png", width=200, height=160)
+
+
+def _palette_legend_widget(env: str) -> ipw.HTML:
+    """Render a simple swatch legend for the current environment palette."""
+
+    palette = utils.palette_for_env(env)
+    rows = []
+    for entry in palette:
+        color = entry.get("color", "#cccccc")
+        facies = entry.get("facies", "facies")
+        rows.append(
+            f'<div style="display:flex;align-items:center;padding:2px 0;">'
+            f'<span style="display:inline-block;width:14px;height:14px;background:{color};'
+            f'border:1px solid #999;margin-right:6px;"></span>'
+            f'<span style="font-size:12px;color:#333;">{facies}</span>'
+            f'</div>'
+        )
+    html = "<div style='padding-top:6px;'>" + "".join(rows) + "</div>"
+    return ipw.HTML(value=html)
 
 
 def _save_png(array: np.ndarray, path: Path, *, cmap: str | None) -> None:
