@@ -104,15 +104,7 @@ def build_live_fluvial_panel(
 
     # Batch summary helpers
     batch_start_seed = widgets.IntText(value=42, description="Start seed")
-    batch_count = widgets.IntSlider(
-        value=3,
-        min=1,
-        max=12,
-        step=1,
-        description="Image count",
-        style={"description_width": "120px"},
-        layout=widgets.Layout(width="320px"),
-    )
+    batch_count = widgets.IntText(value=3, description="Image count")
     batch_button = widgets.Button(description="Run batch summary", button_style="info", icon="table")
     batch_output = widgets.Output()
 
