@@ -877,13 +877,21 @@ def _make_preview_row(
     analog_img = _array_to_image_widget(analog, cmap="gray", width=width, height=height)
     color_img = _array_to_image_widget(color, cmap=None, width=width, height=height)
     channel_img = _array_to_image_widget(channel_mask, cmap="gray", width=width, height=height)
+
+    analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
+    color_box = ipw.VBox([ipw.HTML("<b>Facies composite</b>"), color_img], layout=ipw.Layout(align_items="center"))
+    channel_box = ipw.VBox([ipw.HTML("<b>Channel mask</b>"), channel_img], layout=ipw.Layout(align_items="center"))
+
+    # Simple legend text from palette order
+    palette = utils.palette_for_env("fluvial")
+    legend_text = ", ".join(entry["facies"] for entry in palette)
     metrics_html = ipw.HTML(
-        "<br>".join(
-            f"<b>{name}</b>: {value:.4f}"
-            for name, value in metrics.items()
-        )
+        "<b>Metrics</b><br>"
+        + "<br>".join(f"{name}: {value:.4f}" for name, value in metrics.items())
+        + "<br><br><b>Legend (facies order)</b><br>"
+        + legend_text
     )
-    return ipw.HBox([analog_img, color_img, channel_img, metrics_html])
+    return ipw.HBox([analog_box, color_box, channel_box, metrics_html])
 
 
 def _array_to_image_widget(
