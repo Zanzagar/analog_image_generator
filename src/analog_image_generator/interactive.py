@@ -507,6 +507,24 @@ def build_interactive_ui(env: str) -> InteractivePanel:
     )
 
 
+
+
+
+def slider_state(panel: InteractivePanel) -> dict[str, float]:
+    """Collect current slider values from an InteractivePanel."""
+
+    params: dict[str, float] = {}
+    for group in panel.slider_groups.values():
+        for cfg in group["sliders"].values():
+            key = cfg.get("key") or cfg.get("label")
+            widget = panel.widgets.get(key)
+            if widget is not None:
+                params[key] = float(widget.value)
+    # add style/mode/seed if present
+    for key in ("style", "mode", "seed"):
+        if key in panel.widgets:
+            params[key] = panel.widgets[key].value
+    return params
 def preview_sequence(env: str, params: Mapping[str, float] | None, seeds: Iterable[int]) -> PreviewResult:
     """Return a widget layout that stacks preview frames for each seed."""
 
