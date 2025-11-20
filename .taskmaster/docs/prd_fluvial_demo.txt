@@ -1,0 +1,41 @@
+# PRD: Fluvial Demo Notebooks & Debug Surfaces
+
+## Goal
+Deliver professor-ready demo notebooks for meandering, braided, anastomosing, stacked packages, and reporting/statistics that:
+- Showcase parameter controls, live generator outputs (gray, masks, color composites).
+- Include stacked vs single-belt comparisons, metrics summaries (β/D/H, PSD), and reporting previews.
+- Provide debugging hooks (cell toggles, seed overrides, metadata tables) so features can be tuned live.
+- Tie directly back to GEOLOGIC_RULES anchors and smoke/reporting artifacts so the professor sees the entire feature surface.
+
+## Existing Components to Leverage
+- `analog_image_generator.geologic_generators` (single belts) and `stacked_channels.build_stacked_fluvial`.
+- `analog_image_generator.interactive` (slider schema + preview helpers).
+- `analog_image_generator.stats` (metrics + preview_metrics) and `analog_image_generator.reporting` (CSV/PDF pipeline).
+- `scripts/smoke_test.py` (produces `outputs/smoke_report/`) and `scripts/validate_geo_anchors.py`.
+- Visual assets from `outputs/smoke_report/`, palettes in `docs/PALETTES.md`, and Task Master tag `fluvial-v1`.
+
+## Requirements
+1. **Notebook Structure (per environment)**
+   - Intro markdown referencing GEOLOGIC_RULES anchors.
+   - Parameter preset cells (baseline + extremes) referencing the code modules above.
+   - Generator run cells (single + stacked) using `geologic_generators` and `stacked_channels`.
+   - Visualization cells with matplotlib + palette legends; include stacked boundary/ID map overlays.
+   - Metrics summary cell using `stats.compute_metrics` + display of QA flags.
+   - Reporting hook (link/embed outputs from `reporting.build_reports` or `outputs/smoke_report/`).
+   - Debug section (seed override, stacked package toggles, metadata display).
+   - Checklist cell asserting all features demonstrated.
+2. **Interactive Notebook**
+   - Embed `interactive.build_interactive_ui` panel and `preview_sequence` outputs.
+   - Show how to override slider configs programmatically.
+3. **Stats + Reporting Notebooks**
+   - stats notebook: run `stats.compute_metrics` on several realizations, visualize PSD anisotropy, compare β dir vs iso.
+   - reporting notebook: construct sample `metrics_rows`, run `reporting.build_reports`, display CSV/PDF artifacts, note output paths.
+4. **Documentation**
+   - Update README (demo instructions/screenshots), docs/WORKFLOW (demo day checklist), docs/CODEX_RUNBOOK (pre-demo commands).
+   - Meeting recap entry summarizing demo readiness.
+5. **Automation**
+   - Continue running `pytest`, `scripts/validate_geo_anchors.py`, and `scripts/smoke_test.py` after each notebook update; ensure CI remains green.
+
+## Out of Scope
+- Aeolian/estuarine demos (future PRDs/tags).
+- Advanced UI polish outside notebook context (full front-end app).

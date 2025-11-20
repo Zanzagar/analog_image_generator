@@ -44,6 +44,9 @@ def _run_smoke(style: str) -> dict:
     metrics["seed"] = 123
     metrics["gray"] = analog
     metrics["color"] = _sample_color_stack(masks, analog.shape)
+    metrics.setdefault("petrology_cement", "")
+    metrics.setdefault("petrology_mineralogy", {})
+    metrics.setdefault("stacked_package_count", 0)
     return metrics
 
 
@@ -69,6 +72,10 @@ def _run_stacked_smoke() -> dict:
     metrics["seed"] = 999
     metrics["gray"] = analog
     metrics["color"] = _sample_color_stack(masks, analog.shape)
+    metrics.setdefault("petrology_cement", "")
+    metrics.setdefault("petrology_mineralogy", {})
+    count = masks.get("package_id_map")
+    metrics["stacked_package_count"] = int(masks["realization_metadata"]["stacked_packages"]["stack_statistics"]["package_count"]) if "realization_metadata" in masks else 0
     return metrics
 
 
