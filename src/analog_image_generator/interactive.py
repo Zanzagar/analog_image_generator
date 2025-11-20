@@ -877,10 +877,15 @@ def _make_preview_row(
     analog_img = _array_to_image_widget(analog, cmap="gray", width=width, height=height)
     color_img = _array_to_image_widget(color, cmap=None, width=width, height=height)
     channel_img = _array_to_image_widget(channel_mask, cmap="gray", width=width, height=height)
+    variogram_img = _variogram_plot_widget(analog, metrics)
 
     analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
     color_box = ipw.VBox([ipw.HTML("<b>Facies composite</b>"), color_img], layout=ipw.Layout(align_items="center"))
     channel_box = ipw.VBox([ipw.HTML("<b>Channel mask</b>"), channel_img], layout=ipw.Layout(align_items="center"))
+    variogram_box = ipw.VBox(
+        [ipw.HTML("<b>Variogram (log-log)</b>"), variogram_img],
+        layout=ipw.Layout(align_items="center"),
+    )
 
     # Simple legend text from palette order
     palette = utils.palette_for_env("fluvial")
@@ -891,7 +896,7 @@ def _make_preview_row(
         + "<br><br><b>Legend (facies order)</b><br>"
         + legend_text
     )
-    return ipw.HBox([analog_box, color_box, channel_box, metrics_html])
+    return ipw.HBox([analog_box, color_box, channel_box, variogram_box, metrics_html])
 
 
 def _array_to_image_widget(
@@ -914,6 +919,35 @@ def _array_to_png_bytes(array: np.ndarray, *, cmap: str | None) -> bytes:
     plt.imsave(buf, clipped, cmap=cmap, vmin=0.0, vmax=1.0)
     buf.seek(0)
     return buf.read()
+
+
+def _variogram_plot_widget(gray: np.ndarray, metrics: Mapping[str, float]) -> ipw.Image:
+    """Render a log-log variogram plot with power-law fit for the preview row."""
+
+    import io
+    from matplotlib import pyplot as plt
+
+    gray = np.asarray(gray, dtype=np.float32)
+    series = stats.compute_variogram(gray, {"iso": (0, 1)}, max_lag=16)["iso"]
+    lags = series["lags"]
+    gamma = series["semivariances"]
+    beta, intercept = stats.fit_power_law(lags, gamma)
+    fit_line = np.exp(intercept) * (lags ** beta)
+
+    fig, ax = plt.subplots(figsize=(3.0, 2.4), dpi=120)
+    ax.loglog(lags, gamma, "o", markersize=3, label="Variogram (iso)")
+    ax.loglog(lags, fit_line, "-", label=f"Fit β={beta:.3f}, D={stats.fractal_dimension(beta):.3f}")
+    ax.set_xlabel("Lag (px)")
+    ax.set_ylabel("Semivariance")
+    ax.legend(fontsize=7, loc="lower right")
+    ax.grid(True, which="both", ls=":", alpha=0.4)
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    plt.close(fig)
+    buf.seek(0)
+    return ipw.Image(value=buf.read(), format="png", width=200, height=160)
 
 
 def _save_png(array: np.ndarray, path: Path, *, cmap: str | None) -> None:
