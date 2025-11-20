@@ -3254,7 +3254,7 @@
   "fluvial-v1-demo": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Align fluvial demo notebook skeletons with GEOLOGIC_RULES anchors",
         "description": "Audit existing fluvial notebooks and craft a repeatable intro/checklist cell pattern that ties every section back to the documented anchors.",
         "details": "- Inventory notebooks under `notebooks/fluvial_*` plus `fluvial_sanity.ipynb` and map each required section (intro, presets, generator runs, metrics, reporting, debug) to anchor IDs defined in `docs/GEOLOGIC_RULES.md`.\n- Create/refresh intro markdown blocks per environment (meandering, braided, anastomosing, stacked, reporting, stats) referencing anchors like ``analog_image_generator.geologic_generators.generate_meandering`` and `anchor-fluvial-overview` in `docs/GEOLOGIC_RULES.md`.\n- Add a standardized checklist markdown cell (✅/⬜) enumerating PRD bullets so QA can tick each feature before sharing with the professor.\n- Pseudo-code:\n```\nfor env in (\"meandering\",\"braided\",\"anastomosing\",\"stacked\",\"reporting\",\"stats\"):\n    anchor_id = f\"anchor-{env}-overview\"\n    write_markdown_cell(f\"### {env.title()} demo\\nAnchors: GEOLOGIC_RULES#{anchor_id}\")\n```\n- Ensure the new anchors are backfilled into `docs/GEOLOGIC_RULES.md` and cross-linked from notebook markdown cells.",
@@ -3335,7 +3335,7 @@
         "updatedAt": "2025-11-20T18:34:22.499Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Add parameter preset cells referencing generator defaults",
         "description": "Expose baseline/extreme parameter presets for each fluvial environment so demos can reproduce single-belt and stacked behaviors on demand.",
         "details": "- Pull defaults from `analog_image_generator.geologic_generators` (`_MEANDER_DEFAULTS`, `_BRAIDED_DEFAULTS`, `_ANASTO_DEFAULTS`) and stacked controls from `stacked_channels.build_stacked_fluvial`.\n- For each notebook, add code cells defining dictionaries such as `baseline_params`, `extreme_scroll_params`, `stacked_package_mix`, each with inline comments referencing GEOLOGIC_RULES anchors.\n- Include Task Master tag metadata (e.g., `params[\"task_master_tag\"] = \"fluvial-v1\"`) when preparing reporting hooks.\n- Pseudo-code:\n```\nfrom analog_image_generator import geologic_generators as gg\nbaseline_meander = {**gg._MEANDER_DEFAULTS, \"seed\": 42}\nextreme_meander = {**baseline_meander, \"drift_fraction\": 0.18, \"mode\": \"single\"}\nstacked_presets = {\n    \"mode\": \"stacked\",\n    \"package_count\": 3,\n    \"package_styles\": [\"meandering\",\"braided\",\"anastomosing\"],\n    \"package_relief_px\": [18, 12, 24],\n}\n```\n- Embed markdown explaining when to use each preset and how it maps to the PRD scenarios.",
@@ -3404,7 +3404,7 @@
         "updatedAt": "2025-11-20T18:38:18.696Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implement generator run cells for single and stacked fluvial belts",
         "description": "Wire notebook cells that call the existing generator and stacked channel builders to produce gray images and masks for each preset.",
         "details": "- Add helper cell per notebook that imports `analog_image_generator.geologic_generators.generate_fluvial` and `stacked_channels.build_stacked_fluvial`.\n- Write callable utility `run_fluvial_case(params)` returning `(gray, masks)` to avoid duplication; detect `params[\"mode\"] == \"stacked\"` to route to `build_stacked_fluvial`.\n- Capture masks (`channel`, `levee`, `scroll_bar`, `upper_surface_mask`, `package_id_map`, etc.) for downstream visualization.\n- Persist quick artifacts under `outputs/notebooks/<env>/seed_{seed}/` for later reporting hooks.\n- Pseudo-code:\n```\nfrom analog_image_generator import geologic_generators as gg\nfrom analog_image_generator import stacked_channels\n\ndef run_fluvial_case(params):\n    if params.get(\"mode\") == \"stacked\":\n        return stacked_channels.build_stacked_fluvial(params)\n    return gg.generate_fluvial(params)\n\ngray, masks = run_fluvial_case(baseline_meander)\n```\n- Include markdown callouts describing the expected `gray`/`masks` tuple per PRD.",
@@ -3487,7 +3487,7 @@
         "updatedAt": "2025-11-20T18:44:14.300Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Build visualization cells with palette legends and stacked overlays",
         "description": "Render matplotlib grids that combine gray images, mask composites, stacked boundary overlays, and palette legends per PRD requirements.",
         "details": "- Use `matplotlib.pyplot` plus `matplotlib.colors.ListedColormap` with palette definitions from `docs/PALETTES.md` to colorize masks.\n- Add dedicated functions for stacked overlays: `plot_boundary_overlay(gray, masks[\"upper_surface_mask\"], masks[\"package_id_map\"])` returning axes with alpha-blended colors.\n- Embed legends showing palette colors for `channel`, `levee`, `scroll_bar`, stacked boundary IDs, and QA flags.\n- Provide comparison grids showing `single` vs `stacked` outputs side-by-side with consistent axes titles (seed, preset name, anchor IDs).\n- Pseudo-code:\n```\nfrom matplotlib import pyplot as plt\nfrom docs_palettes import CHANNEL_PALETTE\n\nfig, axes = plt.subplots(1, 3, figsize=(14,4))\naxes[0].imshow(gray, cmap=\"gray\")\naxes[1].imshow(masks[\"channel\"], cmap=CHANNEL_PALETTE)\naxes[2].imshow(masks[\"package_id_map\"], cmap=STACKED_ID_CMAP, alpha=0.7)\n```\n- Save snapshots into `outputs/notebooks/...` for inclusion in README/reporting preview sections.",
@@ -3571,7 +3571,7 @@
         "updatedAt": "2025-11-20T18:48:28.751Z"
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Add metrics summary cells invoking stats compute pipelines",
         "description": "Summarize β/D/H, PSD, and QA flags inside notebooks by calling the existing stats utilities and presenting tables/plots.",
         "details": "- Import `analog_image_generator.stats.compute_metrics` and `stats.preview_metrics`; pass `gray`, `masks`, and `env` derived from presets.\n- Display tabular metrics (β_iso vs β_dir, β_seg_x/y, entropy, PSD anisotropy, topology counts) plus QA flags in a pandas DataFrame.\n- Plot PSD anisotropy curves and highlight β/D/H comparisons inline with Matplotlib.\n- Provide in-cell markdown referencing GEOLOGIC_RULES metrics anchors and linking to stats notebook sections.\n- Pseudo-code:\n```\nfrom analog_image_generator import stats\nmetrics = stats.compute_metrics(gray, masks, env=\"fluvial\")\npd.DataFrame([metrics])[metric_columns + qa_columns]\n```\n- Cache metrics dictionaries per realization for reuse by reporting cells.",
@@ -3658,7 +3658,7 @@
         "updatedAt": "2025-11-20T18:54:46.747Z"
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Integrate reporting hooks and artifact previews in notebooks",
         "description": "Expose the reporting pipeline outputs directly inside demo notebooks, linking to smoke artifacts and showing CSV/PDF previews.",
         "details": "- Import `analog_image_generator.reporting.build_reports` and reuse metrics rows produced in Task 5; include metadata such as `env`, `seed`, `task_master_tag`, `stacked_packages`.\n- Create notebook cells that trigger reporting in a scratch directory (e.g., `outputs/notebooks/reporting_demo/`) while also referencing `outputs/smoke_report/` generated by `scripts/smoke_test.py`.\n- Embed PDF/CSV previews via nbconvert-friendly widgets (e.g., display CSV head with pandas, embed PDF using `IPython.display.IFrame`).\n- Provide instructions linking these outputs to the professor-ready artifacts and Task Master tag `fluvial-v1`.\n- Pseudo-code:\n```\nrows = [{\"env\": \"fluvial\", \"seed\": params[\"seed\"], **metrics} for metrics in collected_metrics]\nreporting.build_reports(rows, output_dir=\"outputs/notebooks/reporting_demo\")\ndisplay(pd.read_csv(\"outputs/notebooks/reporting_demo/metrics.csv\").head())\n```\n- Update markdown to explain how to regenerate full smoke artifacts (`python scripts/smoke_test.py`).",
@@ -3732,7 +3732,7 @@
         "updatedAt": "2025-11-20T18:58:13.166Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Add debug hooks, seed overrides, and metadata tables",
         "description": "Provide notebook sections that expose tuning controls (seed overrides, stacked toggles, metadata display) plus a final checklist asserting all PRD features were demonstrated.",
         "details": "- Implement UI helper cells that let users set `CURRENT_SEED`, `STACK_MODE`, and `DEBUG_FLAGS` using ipywidgets toggles or manual variable assignments.\n- Print metadata tables from `masks[\"realization_metadata\"]` (especially `stacked_packages`, `erosion_relief_px`, `package_count`) and expose JSON dumps for Task Master logging.\n- Add cell toggles (can leverage `ipywidgets.Accordion`) to show/hide raw masks, random seeds, and parameter dictionaries.\n- Provide a markdown checklist (matching Task 1) that the engineer can tick after verifying generator/metrics/reporting sections, ensuring compliance with QA definition of done.\n- Pseudo-code:\n```\nimport ipywidgets as widgets\nseed_box = widgets.IntText(value=42, description=\"Seed override\")\nstack_toggle = widgets.ToggleButtons(options=[\"single\",\"stacked\"], description=\"Mode\")\ndisplay(seed_box, stack_toggle)\n```\n- Document how to forward overrides into the generator helper from Task 3 before execution.",
@@ -3818,7 +3818,7 @@
         "updatedAt": "2025-11-20T19:19:22.312Z"
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Embed interactive panel & slider overrides in `v20a_interactive_rebuild.ipynb`",
         "description": "Enhance the interactive notebook to showcase `interactive.build_interactive_ui` usage, slider overrides, and preview exports per PRD.",
         "details": "- Import `analog_image_generator.interactive.build_interactive_ui`, `build_sliders`, `preview_sequence`, and `run_param_batch`.\n- Demonstrate constructing the UI panel via code, overriding slider values programmatically (e.g., `panel.slider_controls[\"drift_fraction\"].value = 0.15`).\n- Show how to plug slider outputs into `preview_sequence` to render preview mosaics plus placeholder β/D/H metrics and how to queue `run_param_batch` for batch exports tied to Task Master tags.\n- Include markdown referencing anchors `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-preview-sequence` and GEOLOGIC_RULES interactive entries.\n- Pseudo-code:\n```\nfrom analog_image_generator import interactive\npanel = interactive.build_interactive_ui(\"fluvial\")\npanel.slider_controls[\"package_count\"].value = 3\npreview = interactive.preview_sequence(\"fluvial\", panel.slider_state(), seeds=[42,77])\npreview.display()\n```\n- Add debug cell pointing to slider schema JSON for reuse in Task Master automation.",
@@ -3906,7 +3906,7 @@
         "updatedAt": "2025-11-20T19:34:25.203Z"
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Expand stats notebook with PSD anisotropy and β_dir vs β_iso comparisons",
         "description": "Update `notebooks/fluvial_stats.ipynb` to run multiple realizations through `stats.compute_metrics`, visualize PSD anisotropy, and compare directional metrics as required.",
         "details": "- Add loop generating several realizations (baseline meander, extreme meander, stacked) and collect metrics via `compute_metrics`.\n- Plot PSD power spectra slices along dir vs iso orientation, annotate β_dir vs β_iso differences, and include discussion referencing PRD requirements.\n- Visualize β vs D vs H scatter for the runs and highlight QA flags.\n- Provide summary tables comparing Phase 1 vs Phase 2 metrics, ensuring coverage of PSD anisotropy, variograms, topology, and stacked metadata rows.\n- Pseudo-code:\n```\nresults = []\nfor preset in (baseline_meander, extreme_meander, stacked_presets):\n    gray, masks = run_fluvial_case(preset)\n    metrics = stats.compute_metrics(gray, masks, env=\"fluvial\")\n    results.append({\"preset\": preset[\"name\"], **metrics})\nplot_psd_anisotropy(results)\n```\n- Cross-link new sections to GEOLOGIC_RULES anchors and note how outputs feed reporting.",
@@ -3992,7 +3992,7 @@
         "updatedAt": "2025-11-20T19:56:48.449Z"
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Update reporting notebook, documentation, and automation hooks",
         "description": "Refresh `notebooks/reporting.ipynb`, README, docs/WORKFLOW, docs/CODEX_RUNBOOK, and meeting recap to reflect the new demo workflow while enforcing automation requirements.",
         "details": "- Enhance `notebooks/reporting.ipynb` to demonstrate building `metrics_rows`, calling `reporting.build_reports`, and previewing CSV/PDF artifacts with notes about `outputs/smoke_report/` parity.\n- Update `README.md` with demo screenshots/instructions, `docs/WORKFLOW.md` with a demo-day checklist, and `docs/CODEX_RUNBOOK.md` with pre-demo commands (run pytest, geo anchor validation, smoke test, Task Master notes).\n- Add a meeting recap entry (using `docs/MEETING_RECAP_TEMPLATE.md`) summarizing readiness.\n- Embed automation reminders in docs (and optionally notebook markdown) to rerun `pytest`, `python scripts/validate_geo_anchors.py`, and `python scripts/smoke_test.py` after edits; wire these commands into a `make demo-check` helper if needed.\n- Pseudo-code for automation cell:\n```\n!pytest -q\n!python scripts/validate_geo_anchors.py\n!python scripts/smoke_test.py --fast\n```\n- Ensure updates reference Task Master tag `fluvial-v1` for traceability.",
@@ -4097,7 +4097,7 @@
         "updatedAt": "2025-11-20T20:15:11.193Z"
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Overhaul interactive sliders with real-time preview",
         "description": "Expose all fluvial parameters as sliders with debounced live preview; add status/busy UI; ensure stacked/single parity and quick metrics refresh.",
         "details": "Implement: 1) Expand build_sliders(fluvial) to include all major geologic params (meander/braided/anasto + stacked); 2) Refactor v20a_interactive_rebuild.ipynb UI cell to render full slider panel with debounced on-change preview (gray+facies), quick metrics (preview_metrics), metadata/QA table, status label; 3) Add batch helper button for run_param_batch seeds; 4) Update anchors/docs (GEOLOGIC_RULES, notebook markdown, runbook) with new UI behavior; 5) Add a smoke-ish test to ensure slider config and preview calls work; 6) Run validation loop (pytest, validate_geo_anchors, smoke_test, nbconvert).",
@@ -4107,19 +4107,28 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2025-11-20T20:59:02.035Z"
+      },
+      {
+        "id": "12",
+        "title": "Dynamic style-aware interactive UI + full slider coverage",
+        "description": "Switch controls dynamically per style (meandering/braided/anastomosing) with stacked-aware sliders; expose full geologic parameter set from GEOLOGIC_RULES and add batch summary stats below previews.",
+        "details": "Goals: 1) Dynamic control sets: when style changes, only relevant sliders render, stacked controls shown conditionally. 2) Expand slider metadata to include remaining geologic parameters from GEOLOGIC_RULES (sedimentary processes, facies overlays) so UI offers full coverage. 3) Add batch summary stats below previews (beta/PSD/QA) with seed list support. 4) Maintain auto-run/Run preview UX with debouncing and busy indicators. 5) Keep notebooks lean by moving helpers to interactive/ui modules. 6) Validation loop: pytest, validate_geo_anchors, smoke, nbconvert.",
+        "testStrategy": "",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2025-11-20T21:28:29.381Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T20:59:02.038Z",
-      "taskCount": 11,
+      "lastModified": "2025-11-20T21:28:29.385Z",
+      "taskCount": 12,
       "completedCount": 11,
       "tags": [
         "fluvial-v1-demo"
-      ],
-      "created": "2025-11-20T20:59:05.263Z",
-      "description": "Tasks for fluvial-v1-demo context",
-      "updated": "2025-11-20T20:59:05.263Z"
+      ]
     }
   }
 }
