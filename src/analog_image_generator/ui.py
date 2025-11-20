@@ -123,7 +123,7 @@ def build_live_fluvial_panel(
         "anastomosing": ["general", "anastomosing", "facies_overlays"],
     }
 
-    state = {"running": False, "pending": False}
+    state = {"running": False}
 
     def apply_visibility(*_):
         # Hide all groups first
@@ -151,7 +151,6 @@ def build_live_fluvial_panel(
 
     def render_preview(*_):
         if state["running"]:
-            state["pending"] = True
             return
         state["running"] = True
         status.value = "<b>Running…</b>"
@@ -174,9 +173,6 @@ def build_live_fluvial_panel(
         finally:
             state["running"] = False
             status.value = "<b>Done</b>"
-            if state.get("pending"):
-                state["pending"] = False
-                render_preview()
 
     def render_batch_grid(*_):
         with batch_grid_output:
