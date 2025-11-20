@@ -11,7 +11,11 @@ from IPython.display import Markdown, display
 from . import interactive
 
 
-def _make_slider_widget(cfg: Mapping[str, object], *, description_width: str, slider_width: str) -> widgets.Widget:
+def _make_slider_widget(
+    cfg: Mapping[str, object], *, description_width: str, slider_width: str
+) -> tuple[widgets.Widget, widgets.Widget]:
+    """Return (slider, row_with_info_icon)."""
+
     common = dict(
         description=cfg["label"],
         min=cfg["min"],
@@ -22,16 +26,23 @@ def _make_slider_widget(cfg: Mapping[str, object], *, description_width: str, sl
         style={"description_width": description_width},
         layout=widgets.Layout(width=slider_width),
     )
-    if cfg["dtype"] == "int":
-        return widgets.IntSlider(**common)
-    return widgets.FloatSlider(**common)
+    slider = widgets.IntSlider(**common) if cfg["dtype"] == "int" else widgets.FloatSlider(**common)
+    slider.tooltip = cfg.get("description", "")  # hover text
+
+    info_text = cfg.get("description", "")
+    info_icon = widgets.HTML(
+        value=f'<span title="{info_text}" style="font-size:12px; color:#555; padding-left:6px;">&#9432;</span>',
+        layout=widgets.Layout(width="20px"),
+    )
+    row = widgets.HBox([slider, info_icon], layout=widgets.Layout(align_items="center"))
+    return slider, row
 
 
 def build_live_fluvial_panel(
     *,
     slider_width: str = "320px",
     description_width: str = "160px",
-    panel_width: str = "460px",
+    panel_width: str = "520px",
     auto_run: bool = False,
 ) -> dict[str, widgets.Widget]:
     """
@@ -49,16 +60,18 @@ def build_live_fluvial_panel(
         header = widgets.HTML(f"<h4>{meta['label']}</h4>")
         children: list[widgets.Widget] = [header]
         for cfg in meta["sliders"].values():
-            w = _make_slider_widget(cfg, description_width=description_width, slider_width=slider_width)
-            slider_widgets[cfg["key"]] = w
-            children.append(w)
+            slider, row = _make_slider_widget(
+                cfg, description_width=description_width, slider_width=slider_width
+            )
+            slider_widgets[cfg["key"]] = slider
+            children.append(row)
         box = widgets.VBox(children)
         group_boxes[group_key] = box
         group_order.append(group_key)
 
     slider_box = widgets.VBox(
         [group_boxes[g] for g in group_order],
-        layout=widgets.Layout(max_height="520px", overflow_y="auto", width=panel_width),
+        layout=widgets.Layout(width=panel_width),
     )
 
     style_dropdown = widgets.Dropdown(
