@@ -30,11 +30,18 @@ def _make_slider_widget(
     slider.tooltip = cfg.get("description", "")  # hover text
 
     info_text = cfg.get("description", "")
-    info_icon = widgets.HTML(
-        value=f'<span title="{info_text}" style="font-size:12px; color:#555; padding-left:6px;">&#9432;</span>',
-        layout=widgets.Layout(width="20px"),
+    info_icon = widgets.Button(
+        icon="info",
+        tooltip=info_text,
+        button_style="",
+        layout=widgets.Layout(width="28px", height="28px", padding="0px 2px", margin="0 0 0 6px"),
+        disabled=True,
     )
-    row = widgets.HBox([slider, info_icon], layout=widgets.Layout(align_items="center"))
+    info_icon.style.button_color = "#f5f5f5"
+    row = widgets.HBox(
+        [slider, info_icon],
+        layout=widgets.Layout(align_items="center", width="100%"),
+    )
     return slider, row
 
 
