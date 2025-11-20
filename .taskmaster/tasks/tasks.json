@@ -4102,24 +4102,24 @@
         "description": "Expose all fluvial parameters as sliders with debounced live preview; add status/busy UI; ensure stacked/single parity and quick metrics refresh.",
         "details": "Implement: 1) Expand build_sliders(fluvial) to include all major geologic params (meander/braided/anasto + stacked); 2) Refactor v20a_interactive_rebuild.ipynb UI cell to render full slider panel with debounced on-change preview (gray+facies), quick metrics (preview_metrics), metadata/QA table, status label; 3) Add batch helper button for run_param_batch seeds; 4) Update anchors/docs (GEOLOGIC_RULES, notebook markdown, runbook) with new UI behavior; 5) Add a smoke-ish test to ensure slider config and preview calls work; 6) Run validation loop (pytest, validate_geo_anchors, smoke_test, nbconvert).",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2025-11-20T20:53:24.061Z"
+        "updatedAt": "2025-11-20T20:59:02.035Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T20:53:24.066Z",
+      "lastModified": "2025-11-20T20:59:02.038Z",
       "taskCount": 11,
-      "completedCount": 10,
+      "completedCount": 11,
       "tags": [
         "fluvial-v1-demo"
       ],
-      "created": "2025-11-20T20:57:25.499Z",
+      "created": "2025-11-20T20:59:05.263Z",
       "description": "Tasks for fluvial-v1-demo context",
-      "updated": "2025-11-20T20:57:25.499Z"
+      "updated": "2025-11-20T20:59:05.263Z"
     }
   }
 }
