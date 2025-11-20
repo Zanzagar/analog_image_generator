@@ -51,6 +51,14 @@ Env | Principle | Code Anchor | Notebook Anchor
 Fluvial | Slider schema derives from PRD tables with citation metadata | `analog_image_generator.interactive.build_sliders(env: str) -> dict[str, SliderGroup]` | `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-interactive-ui`
 Fluvial | Notebook widgets + preview stack calling generators/stacks | `analog_image_generator.interactive.build_interactive_ui(env: str) -> InteractivePanel` / `analog_image_generator.interactive.preview_sequence(env: str, params: Mapping[str, float], seeds: Iterable[int]) -> PreviewResult` | `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-preview-sequence`
 
+## Fluvial (Interactive Controls Coverage)
+Env | Principle | Code Anchor | Notebook Anchor
+--- | --- | --- | ---
+Fluvial | Core controls (style preset/seed, resolution, palette/gray, style geometry: meander centerlines/amplitude/widths; braided threads/width/bar spacing/chute freq; anasto branch count/levee width/height/fan length; levee iterations/scroll spacing/oxbow probability) are required to generate a valid analog | `analog_image_generator.ui.build_live_fluvial_panel(env: str, *, panel_width: int = 460, label_width: int = 160, slider_width: int = 320, debounce_ms: int = 250) -> VBox` / `analog_image_generator.geologic_generators.generate_fluvial(params: dict)` | `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-interactive-core`
+Fluvial | Stacked package controls (`stack_mode`, `package_count`, `package_mix`, `erosion_relief_px`) are optional but recommended when stacking | `analog_image_generator.ui.build_live_fluvial_panel(...)` | `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-interactive-stacked`
+Fluvial | Facies/bedform overlays (`channel_fill`, `cross_bed_strength`, `ripple_strength`, optional `ripple_wavelength_px`, `fining_strength`, `mudstone_strength`, `lateral_accretion_strength`) and PSD/anisotropy (`beta_dir`, `beta_iso`) are optional realism knobs | `analog_image_generator.ui.build_live_fluvial_panel(...)` / `analog_image_generator.geologic_generators.apply_sedimentary_overlays(...)` | `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-interactive-facies-psd`
+Fluvial | QA/debug & batch summary (debug accordion, seed override list, batch metrics table) are optional observability controls | `analog_image_generator.ui.build_live_fluvial_panel(...)` | `notebooks/v20a_interactive_rebuild.ipynb#anchor-fluvial-interactive-qa`
+
 ## Statistics (Phase 1 & 2)
 Env | Principle | Code Anchor | Notebook Anchor
 --- | --- | --- | ---

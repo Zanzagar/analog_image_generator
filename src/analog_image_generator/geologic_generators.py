@@ -59,6 +59,10 @@ def generate_fluvial(params: dict) -> tuple[Array, dict[str, Array]]:
     """Return grayscale analog and masks for fluvial environments."""
 
     params = params or {}
+    # Allow UI sliders that emit amplitude_min / amplitude_max to feed amplitude_range
+    if "amplitude_min" in params and "amplitude_max" in params:
+        params["amplitude_range"] = (float(params["amplitude_min"]), float(params["amplitude_max"]))
+
     mode = params.get("mode", "single").lower()
     if mode == "stacked":
         return build_stacked_fluvial(params)
@@ -141,7 +145,7 @@ def generate_meandering(params: dict, rng: np.random.Generator) -> tuple[Array, 
         float(params.get("floodplain_noise", 0.08)),
         rng,
     )
-    analog, masks = apply_sedimentary_overlays(analog, masks, rng, env="meandering")
+    analog, masks = apply_sedimentary_overlays(analog, masks, rng, env="meandering", params=params)
     return analog, masks
 
 
@@ -178,7 +182,7 @@ def generate_braided(params: dict, rng: np.random.Generator) -> tuple[Array, Dic
         float(params.get("floodplain_noise", _BRAIDED_DEFAULTS["floodplain_noise"])),
         rng,
     )
-    analog, masks = apply_sedimentary_overlays(analog, masks, rng, env="braided")
+    analog, masks = apply_sedimentary_overlays(analog, masks, rng, env="braided", params=params)
     return analog, masks
 
 
@@ -223,7 +227,7 @@ def generate_anastomosing(params: dict, rng: np.random.Generator) -> tuple[Array
         rng,
     )
     masks["_metadata_branch_stability"] = np.array([1.0 / max(branch_count, 1)], dtype=np.float32)
-    analog, masks = apply_sedimentary_overlays(analog, masks, rng, env="anastomosing")
+    analog, masks = apply_sedimentary_overlays(analog, masks, rng, env="anastomosing", params=params)
     return analog, masks
 
 
@@ -700,7 +704,11 @@ def apply_cross_bedding(
     return overlay
 
 
-def ripple_mark_texture(overbank_mask: Optional[Array], rng: np.random.Generator) -> Array:
+def ripple_mark_texture(
+    overbank_mask: Optional[Array],
+    rng: np.random.Generator,
+    wavelength_px: float | None = None,
+) -> Array:
     """Create ripple textures on overbank areas (anchor-fluvial-ripple-marks)."""
 
     if overbank_mask is None:
@@ -709,7 +717,7 @@ def ripple_mark_texture(overbank_mask: Optional[Array], rng: np.random.Generator
         return np.zeros_like(overbank_mask, dtype=np.float32)
     height, width = overbank_mask.shape
     yy, xx = np.mgrid[0:height, 0:width]
-    wavelength = rng.uniform(8.0, 14.0)
+    wavelength = wavelength_px if wavelength_px is not None else rng.uniform(8.0, 14.0)
     ripple = 0.5 * (1 + np.sin((yy / wavelength + xx / (wavelength * 0.7)) * 2 * np.pi))
     ripple = ndimage.gaussian_filter(ripple, sigma=1.0)
     return np.clip(ripple * overbank_mask, 0.0, 1.0).astype(np.float32)
@@ -755,26 +763,41 @@ def apply_sedimentary_overlays(
     masks: Dict[str, Array],
     rng: np.random.Generator,
     env: str,
+    params: Optional[dict] = None,
 ) -> tuple[Array, Dict[str, Array]]:
     """Apply sedimentary overlays and metadata across fluvial environments."""
 
+    params = params or {}
+    cross_strength = float(params.get("cross_bed_strength", 0.1))
+    ripple_strength = float(params.get("ripple_strength", 0.05))
+    fining_strength = float(params.get("fining_strength", 1.0))
+    mudstone_strength = float(params.get("mudstone_strength", 1.0))
+    lateral_strength = float(params.get("lateral_accretion_strength", 1.0))
+    ripple_wavelength = params.get("ripple_wavelength_px")
+    if ripple_wavelength is not None and float(ripple_wavelength) <= 0:
+        ripple_wavelength = None
     updated, masks = channel_fill_sandstone(gray, masks, rng)
+    ripple_overlay = np.zeros(1, dtype=np.float32)
     cross_target = masks.get("channel_fill")
     cross_overlay = apply_cross_bedding(
         cross_target, "trough" if env == "braided" else "planar", rng
     )
     if cross_overlay.size != 1:
-        updated = np.clip(updated + cross_overlay * 0.1, 0.0, 1.0)
+        updated = np.clip(updated + cross_overlay * cross_strength, 0.0, 1.0)
         masks["cross_bed"] = cross_overlay
         ripple_base = _first_available(masks, "overbank", "floodplain")
-        ripple_overlay = ripple_mark_texture(ripple_base, rng)
+        ripple_overlay = ripple_mark_texture(
+            ripple_base,
+            rng,
+            wavelength_px=float(ripple_wavelength) if ripple_wavelength is not None else None,
+        )
     if ripple_overlay.size != 1:
-        updated = np.clip(updated + ripple_overlay * 0.05, 0.0, 1.0)
+        updated = np.clip(updated + ripple_overlay * ripple_strength, 0.0, 1.0)
         masks["ripple"] = ripple_overlay
     channel_base = _first_available(masks, "channel", "branch_channel")
     accretion = lateral_accretion_surface(channel_base, rng)
     if accretion.size != 1:
-        masks["lateral_accretion"] = np.clip(accretion, 0.0, 1.0)
+        masks["lateral_accretion"] = np.clip(accretion * lateral_strength, 0.0, 1.0)
     floodplain_base = _first_available(masks, "overbank", "floodplain")
     fining_mask, mudstone_mask = fining_upward_and_mudstone(
         channel_base,
@@ -782,9 +805,9 @@ def apply_sedimentary_overlays(
         rng,
     )
     if fining_mask.size != 1:
-        masks["fining_upward"] = fining_mask
+        masks["fining_upward"] = np.clip(fining_mask * fining_strength, 0.0, 1.0)
     if mudstone_mask.size != 1:
-        masks["overbank_mudstone"] = mudstone_mask
+        masks["overbank_mudstone"] = np.clip(mudstone_mask * mudstone_strength, 0.0, 1.0)
     masks["realization_metadata"] = _petrology_metadata(masks)
     return updated, masks
 

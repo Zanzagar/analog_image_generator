@@ -88,9 +88,9 @@ def build_live_fluvial_panel(
     batch_output = widgets.Output()
 
     style_groups_map = {
-        "meandering": ["general", "meandering"],
-        "braided": ["general", "braided"],
-        "anastomosing": ["general", "anastomosing"],
+        "meandering": ["general", "meandering", "facies_overlays"],
+        "braided": ["general", "braided", "facies_overlays"],
+        "anastomosing": ["general", "anastomosing", "facies_overlays"],
     }
 
     state = {"running": False, "pending": False}

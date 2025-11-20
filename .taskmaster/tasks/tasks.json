@@ -4114,7 +4114,7 @@
         "description": "Switch controls dynamically per style (meandering/braided/anastomosing) with stacked-aware sliders; expose full geologic parameter set from GEOLOGIC_RULES and add batch summary stats below previews.",
         "details": "Goals: 1) Dynamic control sets: when style changes, only relevant sliders render, stacked controls shown conditionally. 2) Expand slider metadata to include remaining geologic parameters from GEOLOGIC_RULES (sedimentary processes, facies overlays) so UI offers full coverage. 3) Add batch summary stats below previews (beta/PSD/QA) with seed list support. 4) Maintain auto-run/Run preview UX with debouncing and busy indicators. 5) Keep notebooks lean by moving helpers to interactive/ui modules. 6) Validation loop: pytest, validate_geo_anchors, smoke, nbconvert.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [
@@ -4163,9 +4163,10 @@
               3
             ],
             "details": "Using the understanding gained from reading interactive modules, outline specific code changes needed to make the UI dynamically render only relevant slider controls for each fluvial style and to expose stacked-specific controls conditionally. Ensure the subtasks reference the appropriate modules (e.g., `build_sliders`, `build_interactive_ui`, or panel/ipywidgets code) and remain consistent with the existing state management and debouncing patterns identified in the code review.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": null,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T21:45:43.286Z"
           },
           {
             "id": 5,
@@ -4175,9 +4176,10 @@
               3
             ],
             "details": "From the GEOLOGIC_RULES anchors and current slider/preview helpers, specify subtasks that will: (1) add missing geologic parameter sliders (sedimentary processes, facies overlays, and other documented controls) to the UI metadata; (2) wire these sliders into existing generator calls; and (3) extend preview/batch helpers (e.g., `preview_sequence`, `run_param_batch`) to compute and display batch-level summary statistics such as beta metrics, PSD, and QA flags, including handling of a seed list. Ensure these subtasks integrate with existing metrics or reporting utilities discovered during analysis.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": null,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T21:45:51.794Z"
           },
           {
             "id": 6,
@@ -4187,19 +4189,20 @@
               3
             ],
             "details": "Using patterns observed in the interactive UI code and v20a notebook, formulate subtasks covering: (1) maintaining or improving debounced live preview behavior and busy indicators when style or slider values change; (2) refactoring notebook-only helpers into reusable interactive/UI modules to keep notebooks lean; and (3) updating/adding tests, running `pytest` and `validate_geo_anchors`, and ensuring `nbconvert` smoke runs capture the updated UI behavior. These subtasks should explicitly reference the responsible modules and notebooks and follow existing conventions for test placement and GEOLOGIC_RULES anchor updates.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": null,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T21:46:05.919Z"
           }
         ],
-        "updatedAt": "2025-11-20T21:42:38.234Z"
+        "updatedAt": "2025-11-20T21:46:05.919Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T21:42:38.238Z",
+      "lastModified": "2025-11-20T21:46:05.923Z",
       "taskCount": 12,
-      "completedCount": 11,
+      "completedCount": 12,
       "tags": [
         "fluvial-v1-demo"
       ]
