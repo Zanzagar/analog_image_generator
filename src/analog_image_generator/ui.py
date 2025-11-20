@@ -204,7 +204,11 @@ def build_live_fluvial_panel(
             # Collect a color thumbnail for the grid
             analog, masks = generator(params_seed)
             color = interactive._colorize_masks("fluvial", masks, analog.shape)
-            channel = masks.get("channel") or masks.get("branch_channel") or np.zeros_like(analog)
+            channel = masks.get("channel")
+            if channel is None:
+                channel = masks.get("branch_channel")
+            if channel is None:
+                channel = np.zeros_like(analog)
             images_color.append(color)
             images_gray.append(analog)
             images_channel.append(channel)
