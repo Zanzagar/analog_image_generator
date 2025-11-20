@@ -292,8 +292,8 @@ _FLUVIAL_SLIDER_LIBRARY: "OrderedDict[str, SliderGroup]" = OrderedDict(
                             {
                                 "key": "thread_count",
                                 "label": "Thread count",
-                                "min": 2,
-                                "max": 10,
+                                "min": 3,
+                                "max": 9,
                                 "step": 1,
                                 "default": 5,
                                 "units": "count",
