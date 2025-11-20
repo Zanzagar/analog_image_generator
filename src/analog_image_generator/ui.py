@@ -103,8 +103,17 @@ def build_live_fluvial_panel(
     output_area = widgets.Output()
 
     # Batch summary helpers
-    batch_seeds = widgets.Text(value="42,43,44", description="Seeds CSV")
-    batch_button = widgets.Button(description="Run batch summary", button_style="info")
+    batch_start_seed = widgets.IntText(value=42, description="Start seed")
+    batch_count = widgets.IntSlider(
+        value=3,
+        min=1,
+        max=12,
+        step=1,
+        description="Image count",
+        style={"description_width": "120px"},
+        layout=widgets.Layout(width="320px"),
+    )
+    batch_button = widgets.Button(description="Run batch summary", button_style="info", icon="table")
     batch_output = widgets.Output()
 
     style_groups_map = {
@@ -166,20 +175,7 @@ def build_live_fluvial_panel(
                 render_preview()
 
     def run_batch(_=None):
-        seeds = []
-        for part in batch_seeds.value.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                seeds.append(int(part))
-            except ValueError:
-                continue
-        if not seeds:
-            with batch_output:
-                batch_output.clear_output()
-                print("No valid seeds.")
-            return
+        seeds = [int(batch_start_seed.value) + i for i in range(int(batch_count.value))]
         params = current_params()
         rows = []
         for seed in seeds:
@@ -193,8 +189,16 @@ def build_live_fluvial_panel(
             batch_output.clear_output()
             if rows:
                 df = pd.DataFrame(rows)
-                display(Markdown("**Batch preview summary**"))
+                display(Markdown(f"**Batch preview summary** ({len(rows)} runs)"))
                 display(df)
+                # summary stats
+                display(Markdown("**Summary statistics (selected metrics)**"))
+                summarize = df.describe(include="all")
+                display(summarize)
+                # quick histograms for beta / entropy if present
+                hist = _batch_hist_widget(df)
+                if hist is not None:
+                    display(hist)
             else:
                 print("No batch frames produced.")
 
@@ -225,7 +229,8 @@ def build_live_fluvial_panel(
             auto_run_toggle,
             status,
             run_button,
-            batch_seeds,
+            batch_start_seed,
+            batch_count,
             batch_button,
             batch_output,
         ]
@@ -248,3 +253,28 @@ def build_live_fluvial_panel(
         "auto_run": auto_run_toggle,
         "slider_widgets": slider_widgets,
     }
+
+
+def _batch_hist_widget(df: pd.DataFrame):
+    """Render histograms for key metrics in batch summary."""
+
+    import io
+    from matplotlib import pyplot as plt
+
+    cols = [col for col in ("beta_iso", "fractal_dimension", "entropy_global") if col in df.columns]
+    if not cols:
+        return None
+    n = len(cols)
+    fig, axes = plt.subplots(1, n, figsize=(3 * n, 2.6), dpi=120)
+    if n == 1:
+        axes = [axes]
+    for ax, col in zip(axes, cols):
+        ax.hist(df[col].dropna(), bins=8, color="#99c2ff", edgecolor="#3b4c6b")
+        ax.set_title(col, fontsize=9)
+        ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    plt.close(fig)
+    buf.seek(0)
+    return widgets.Image(value=buf.read(), format="png", width=200 * n, height=180)
