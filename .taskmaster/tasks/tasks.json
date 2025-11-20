@@ -3833,17 +3833,18 @@
           "6",
           "7"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Confirm interactive imports and notebook anchors",
             "description": "Open the v20a_interactive_rebuild notebook and ensure it imports build_interactive_ui, build_sliders, preview_sequence, and run_param_batch while locating the anchor sections that need updates.",
             "dependencies": [],
-            "details": "Audit the notebook cells, insert missing imports from analog_image_generator.interactive at the top, and outline where anchor references to GEOLOGIC_RULES.md and notebook anchors must appear before modifying any UI code.",
-            "status": "pending",
+            "details": "Audit the notebook cells, insert missing imports from analog_image_generator.interactive at the top, and outline where anchor references to GEOLOGIC_RULES.md and notebook anchors must appear before modifying any UI code.\n<info added on 2025-11-20T19:28:05.843Z>\nInserted a top-level code cell in notebooks/v20a_interactive_rebuild.ipynb that explicitly imports build_sliders, build_interactive_ui, preview_sequence, and run_param_batch from analog_image_generator.interactive immediately after the GEOLOGIC_RULES anchor markdown (docs/GEOLOGIC_RULES.md#anchor-fluvial-interactive-ui), ensuring SLIDER_LIBRARY/build_interactive_ui initialization and the later preview_sequence/run_param_batch cells resolve dependencies before UI wiring.\n</info added on 2025-11-20T19:28:05.843Z>",
+            "status": "done",
             "testStrategy": "Run the initial cells to confirm imports succeed without NameError and anchors resolve in markdown preview.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:28:12.503Z"
           },
           {
             "id": 2,
@@ -3852,10 +3853,11 @@
             "dependencies": [
               1
             ],
-            "details": "Use interactive.build_interactive_ui(\"fluvial\") to get the panel, expose slider_controls dict access, programmatically assign new values, and ensure the widget render reflects overrides with explanatory comments for Task Master readers.",
-            "status": "pending",
+            "details": "Use interactive.build_interactive_ui(\"fluvial\") to get the panel, expose slider_controls dict access, programmatically assign new values, and ensure the widget render reflects overrides with explanatory comments for Task Master readers.\n<info added on 2025-11-20T19:29:05.214Z>\nCode cell in notebooks/v20a_interactive_rebuild.ipynb now calls interactive_panel = interactive.build_interactive_ui(\"fluvial\"), maps slider widgets into SLIDER_CONTROLS, sets SLIDER_CONTROLS[\"drift_fraction\"].value = 0.18 and SLIDER_CONTROLS[\"package_count\"].value = 3, flips interactive_panel.widgets[\"mode\"] to \"stacked\" with interactive_panel.widgets[\"package_mix\"] = (\"Meandering\", \"Braided\", \"Anastomosing\"), and re-renders interactive_panel.layout with a Markdown summary so reviewers can trace Task Master toggle overrides directly to the visible sliders.\n</info added on 2025-11-20T19:29:05.214Z>",
+            "status": "done",
             "testStrategy": "Execute the cell to confirm the panel renders with updated slider values and no widget errors are thrown.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:29:10.684Z"
           },
           {
             "id": 3,
@@ -3864,10 +3866,11 @@
             "dependencies": [
               2
             ],
-            "details": "Add cells that call interactive.preview_sequence with the fluvial slider state, iterate returned mosaics, display them, and compute placeholder metrics (e.g., from masks metadata) to show how UI outputs feed into reporting hooks.",
-            "status": "pending",
+            "details": "Add cells that call interactive.preview_sequence with the fluvial slider state, iterate returned mosaics, display them, and compute placeholder metrics (e.g., from masks metadata) to show how UI outputs feed into reporting hooks.\n<info added on 2025-11-20T19:30:02.279Z>\nNotebook cell in notebooks/v20a_interactive_rebuild.ipynb now snapshots slider_state(panel) via current_generator_params into base_params before launching interactive.preview_sequence for paired single and stacked seed lists, iterates the returned frames to display both mosaics, and accumulates preview_records annotated with TASK_TAG=\"fluvial-v1-demo\" so preview_df captures the β/entropy/fractal placeholders QA expects from the override flow.\n</info added on 2025-11-20T19:30:02.279Z>",
+            "status": "done",
             "testStrategy": "Run the preview cell to ensure preview_sequence executes, returns expected structures, and displayed metrics update when slider overrides change.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:30:09.303Z"
           },
           {
             "id": 4,
@@ -3876,10 +3879,11 @@
             "dependencies": [
               3
             ],
-            "details": "Create an example list of runs using slider_state plus manual tweaks, invoke interactive.run_param_batch with tag metadata, and log/print queued export info so notebook readers know how to launch batch processing.",
-            "status": "pending",
+            "details": "Create an example list of runs using slider_state plus manual tweaks, invoke interactive.run_param_batch with tag metadata, and log/print queued export info so notebook readers know how to launch batch processing.\n<info added on 2025-11-20T19:31:20.085Z>\nNotebook cell “Queue run_param_batch exports…” inside `notebooks/v20a_interactive_rebuild.ipynb` now calls `interactive.run_param_batch(\"fluvial\", SLIDER_LIBRARY, seeds=[311, 313], output_dir=Path(\"outputs/interactive_batch/fluvial-v1-demo\"), style=current_state[\"style\"], mode=current_state.get(\"mode\", \"single\"), extra_params=current_state)` so the queued batch reuses the live `slider_state` overrides; the cell displays “Saved 2 previews to outputs/interactive_batch/fluvial-v1-demo” plus a pandas table of the analog/color PNG paths per seed, giving Task Master reviewers a concrete `fluvial-v1-demo` tag example that ties the batch exports and earlier TASK_TAG logging together.\n</info added on 2025-11-20T19:31:20.085Z>",
+            "status": "done",
             "testStrategy": "Execute the batch cell (with dry-run safeguards if available) to ensure run_param_batch accepts inputs without errors and confirms queued jobs in the notebook output.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:31:25.785Z"
           },
           {
             "id": 5,
@@ -3889,15 +3893,17 @@
               3,
               4
             ],
-            "details": "Insert markdown tying the implemented principles to anchor-fluvial-preview-sequence and relevant GEOLOGIC_RULES keys, and add a debug cell that loads or constructs slider schema JSON (e.g., via build_sliders) and prints it for Task Master automation hooks.",
-            "status": "pending",
+            "details": "Insert markdown tying the implemented principles to anchor-fluvial-preview-sequence and relevant GEOLOGIC_RULES keys, and add a debug cell that loads or constructs slider schema JSON (e.g., via build_sliders) and prints it for Task Master automation hooks.\n<info added on 2025-11-20T19:34:19.978Z>\nDocumented the anchor tie-in inside `notebooks/v20a_interactive_rebuild.ipynb` so the markdown block for `anchor-fluvial-preview-sequence` explicitly references the UX rows in `docs/GEOLOGIC_RULES.md` mapped to `analog_image_generator.interactive.build_interactive_ui(...)` and `interactive.preview_sequence(...)`, making it clear this notebook cell is the canonical reference for those anchors. Added a debug/export cell in the same notebook that reuses `SLIDER_LIBRARY = interactive.build_sliders(\"fluvial\")` (see `src/analog_image_generator/interactive.py:428`) to build a `schema_export` dict of group labels and slider definitions, writes it to `outputs/interactive_batch/fluvial_slider_schema.json`, and prints the resulting path so Task Master automation hooks can ingest the slider schema artifact.\n</info added on 2025-11-20T19:34:19.978Z>",
+            "status": "done",
             "testStrategy": "Render the markdown in Jupyter to verify anchor links, execute the debug cell to ensure the schema JSON prints/exports correctly for downstream processes.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:34:25.203Z"
           }
         ],
         "complexity": 7,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Enhance `notebooks/v20a_interactive_rebuild.ipynb` to import `analog_image_generator.interactive.build_interactive_ui`, `build_sliders`, `preview_sequence`, and `run_param_batch`; instantiate the panel, demonstrate programmatic slider overrides (e.g., tweak `drift_fraction`, `package_count`), and show how slider states feed `preview_sequence` mosaics plus `run_param_batch` exports tagged with `fluvial-v1`. Add markdown linking to the appropriate GEOLOGIC_RULES anchors and include a debug cell exposing the slider schema JSON for automation hooks."
+        "expansionPrompt": "Enhance `notebooks/v20a_interactive_rebuild.ipynb` to import `analog_image_generator.interactive.build_interactive_ui`, `build_sliders`, `preview_sequence`, and `run_param_batch`; instantiate the panel, demonstrate programmatic slider overrides (e.g., tweak `drift_fraction`, `package_count`), and show how slider states feed `preview_sequence` mosaics plus `run_param_batch` exports tagged with `fluvial-v1`. Add markdown linking to the appropriate GEOLOGIC_RULES anchors and include a debug cell exposing the slider schema JSON for automation hooks.",
+        "updatedAt": "2025-11-20T19:34:25.203Z"
       },
       {
         "id": "9",
@@ -4080,9 +4086,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T19:19:22.316Z",
+      "lastModified": "2025-11-20T19:34:25.207Z",
       "taskCount": 10,
-      "completedCount": 7,
+      "completedCount": 8,
       "tags": [
         "fluvial-v1-demo"
       ]
