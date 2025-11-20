@@ -4009,7 +4009,7 @@
           "8",
           "9"
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -4087,12 +4087,13 @@
         ],
         "complexity": 8,
         "recommendedSubtasks": 6,
-        "expansionPrompt": "Refresh `notebooks/reporting.ipynb` to showcase building `metrics_rows` and invoking `analog_image_generator.reporting.build_reports`, then update `README.md`, `docs/WORKFLOW.md`, `docs/CODEX_RUNBOOK.md`, and the latest meeting recap (copy `docs/MEETING_RECAP_TEMPLATE.md`) with the new demo workflow, automation checklist, and Task Master references. Document commands such as `pytest`, `python scripts/validate_geo_anchors.py`, `python scripts/smoke_test.py`, and optionally add a `make demo-check` helper. Ensure every update references the `fluvial-v1` tag for traceability and aligns with the reporting artifacts saved under `outputs/smoke_report/`."
+        "expansionPrompt": "Refresh `notebooks/reporting.ipynb` to showcase building `metrics_rows` and invoking `analog_image_generator.reporting.build_reports`, then update `README.md`, `docs/WORKFLOW.md`, `docs/CODEX_RUNBOOK.md`, and the latest meeting recap (copy `docs/MEETING_RECAP_TEMPLATE.md`) with the new demo workflow, automation checklist, and Task Master references. Document commands such as `pytest`, `python scripts/validate_geo_anchors.py`, `python scripts/smoke_test.py`, and optionally add a `make demo-check` helper. Ensure every update references the `fluvial-v1` tag for traceability and aligns with the reporting artifacts saved under `outputs/smoke_report/`.",
+        "updatedAt": "2025-11-20T19:57:22.965Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T19:56:48.453Z",
+      "lastModified": "2025-11-20T19:57:22.969Z",
       "taskCount": 10,
       "completedCount": 9,
       "tags": [
