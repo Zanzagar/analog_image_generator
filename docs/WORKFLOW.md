@@ -15,7 +15,7 @@ Use Cursor to author PRDs and AGENTS.md first, set up GitHub hygiene (CI, templa
 - Confirm CI green.
 
 3) Switch to Codex + Task Master *(after professor + Codex review gate)*
-- Enable MCP (WSL wrapper), set `codex-cli` main model.
+- Enable MCP (WSL wrapper), set `codex-cli` main model to `gpt-5.1-codex-max`.
 - Tag per PRD (e.g., `fluvial-v1`, `aeolian-v1`, `estuarine-v1`).
 - Record approval (date + reviewer) in each PRD, run `task-master init --rules codex,cursor --yes` (first-time only), confirm `.taskmaster/config.json` shows `codex-cli` as main, then parse PRD → analyze complexity → expand tasks.
 - If a PRD changes post-parse, pause implementation, rerun the gate, and re-parse before expanding.

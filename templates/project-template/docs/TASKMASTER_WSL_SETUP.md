@@ -20,7 +20,7 @@
 
 ## Codex CLI
 - Ensure `codex --version` works and `~/.codex/auth.json` exists.
-- Set main model to `gpt-5.1-codex` via `task-master models --set-main gpt-5.1-codex` (later).
+- Set main model to `gpt-5.1-codex-max` via `task-master models --set-main gpt-5.1-codex-max` (later).
 
 ## Tag Convention
 - One PRD → one tag.

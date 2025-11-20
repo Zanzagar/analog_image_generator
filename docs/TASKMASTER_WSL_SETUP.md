@@ -25,7 +25,7 @@
 
 ## Codex CLI
 - Ensure `codex --version` works and `~/.codex/auth.json` exists.
-- Set main model to `gpt-5.1-codex` via `task-master models --set-main gpt-5.1-codex`.
+- Set main model to `gpt-5.1-codex-max` via `task-master models --set-main gpt-5.1-codex-max`.
 - After each change, run `task-master models` and paste the table output into your meeting notes for traceability.
 
 ## Tag Convention

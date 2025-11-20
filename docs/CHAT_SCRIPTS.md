@@ -34,7 +34,7 @@ Then confirm `codex --version` and show where auth.json is stored.
 
 ### Set Task Master main model to Codex (document-only)
 ```
-Show me how to set Task Master main model to gpt-5.1-codex for later: the exact command and where it writes config.
+Show me how to set Task Master main model to gpt-5.1-codex-max for later: the exact command and where it writes config.
 Do not run it now.
 ```
 
