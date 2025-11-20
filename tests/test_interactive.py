@@ -47,6 +47,15 @@ def test_slider_state_collects_defaults():
     assert state["seed"] == panel.widgets["seed"].value
 
 
+def test_ui_helper_builds_panel():
+    from analog_image_generator import ui
+
+    panel = ui.build_live_fluvial_panel()
+    assert "ui" in panel
+    assert "run_button" in panel
+    assert isinstance(panel["ui"], object)
+
+
 def test_slider_state_collects_defaults():
     panel = interactive.build_interactive_ui("fluvial")
     state = interactive.slider_state(panel)
