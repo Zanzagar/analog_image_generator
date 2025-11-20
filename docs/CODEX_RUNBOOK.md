@@ -128,12 +128,15 @@ In Codex:
 ```bash
 # apply changes; then log and mark
 pytest -q
+python scripts/validate_geo_anchors.py
+python scripts/smoke_test.py
 pre-commit run --all-files
-scripts/validate_geo_anchors.py
-scripts/smoke_test.py
+git status
+git add -A
+git commit -m "feat(<scope>): <summary>"
+git push origin main
 task-master update-subtask --id <id> --prompt "Implemented X; tests pass; notes: ..."
 task-master set-status --id <id> --status=done
-git add -A && git commit -m "feat(module): implement <subtask title>" && git push
 ```
 
 9) New project bootstrap from template (terminal)

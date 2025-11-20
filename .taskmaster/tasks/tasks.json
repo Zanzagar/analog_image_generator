@@ -3583,7 +3583,7 @@
           "3",
           "4"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3591,9 +3591,10 @@
             "description": "Determine every fluvial notebook and preset realization that requires metrics summaries before coding any cells.",
             "dependencies": [],
             "details": "Open the fluvial notebooks, list the preset runs offered in each one, and note where metrics/QA coverage must appear to satisfy GEOLOGIC_RULES anchors.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Cross-reference the collected notebook list against docs/GEOLOGIC_RULES.md anchors to ensure no environment is missed.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:54:46.702Z"
           },
           {
             "id": 2,
@@ -3603,9 +3604,10 @@
               1
             ],
             "details": "Implement notebook cells that load gray/masks/env values, call analog_image_generator.stats.compute_metrics and stats.preview_metrics, then store the resulting dicts in a cache keyed by preset for downstream reuse.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Execute each new cell to confirm metrics dicts populate without errors and contain expected keys like beta_iso, beta_dir, psd_anisotropy.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:54:46.714Z"
           },
           {
             "id": 3,
@@ -3615,9 +3617,10 @@
               2
             ],
             "details": "Use pandas to assemble data rows from cached metrics, include beta_iso vs beta_dir, beta_seg axes, entropy, PSD anisotropy, topology counts, and QA flags, and display them inline with rich formatting.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Spot-check DataFrame columns for completeness and verify values update when rerunning presets.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:54:46.725Z"
           },
           {
             "id": 4,
@@ -3628,9 +3631,10 @@
               3
             ],
             "details": "Generate per-preset PSD anisotropy plots plus overlays highlighting beta vs D vs H relationships, insert markdown cells linking to the correct anchor IDs, and ensure previews run cleanly.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Execute visualization cells to confirm plots render without warnings and markdown links resolve to the documented anchors.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:54:46.736Z"
           },
           {
             "id": 5,
@@ -3642,14 +3646,16 @@
               4
             ],
             "details": "Add markdown describing how cached metrics feed later reporting cells, include lightweight assertions verifying required keys, and finish by running pytest tests/test_stats.py -k compute_metrics to guard against regressions.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Confirm assertions pass within the notebook and run pytest tests/test_stats.py -k compute_metrics successfully.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:54:46.747Z"
           }
         ],
         "complexity": 7,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Import `analog_image_generator.stats` into every fluvial notebook, call `compute_metrics(gray, masks, env=\"fluvial\")` and `preview_metrics` for each preset realization, then present β/D/H, PSD, topology, and QA flag values in pandas tables plus supporting Matplotlib plots (e.g., PSD anisotropy curves). Reference the relevant GEOLOGIC_RULES metric anchors in markdown, cache the metrics dictionaries for later reporting cells, and finish with `pytest tests/test_stats.py -k compute_metrics` to ensure no regressions."
+        "expansionPrompt": "Import `analog_image_generator.stats` into every fluvial notebook, call `compute_metrics(gray, masks, env=\"fluvial\")` and `preview_metrics` for each preset realization, then present β/D/H, PSD, topology, and QA flag values in pandas tables plus supporting Matplotlib plots (e.g., PSD anisotropy curves). Reference the relevant GEOLOGIC_RULES metric anchors in markdown, cache the metrics dictionaries for later reporting cells, and finish with `pytest tests/test_stats.py -k compute_metrics` to ensure no regressions.",
+        "updatedAt": "2025-11-20T18:54:46.747Z"
       },
       {
         "id": "6",
@@ -3665,7 +3671,7 @@
           "4",
           "5"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3673,9 +3679,10 @@
             "description": "Gather Task 5 metrics rows and augment each record with env, seed, task_master_tag, and stacked_packages metadata before invoking the reporting pipeline.",
             "dependencies": [],
             "details": "Implement notebook cell that imports analog_image_generator.reporting.build_reports, collects cached metrics rows, and ensures every dict includes env, seed, task_master_tag=fluvial-v1, stacked_packages, and any downstream-required metadata prior to reuse.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run the preparatory cell and inspect a sample row to confirm all metadata keys exist.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:58:13.132Z"
           },
           {
             "id": 2,
@@ -3685,9 +3692,10 @@
               1
             ],
             "details": "Add filesystem-setup cell that ensures outputs/notebooks/reporting_demo exists, then invoke reporting.build_reports(rows, output_dir=...) and note path parity with outputs/smoke_report/ generated by scripts/smoke_test.py for validation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Execute the reporting cell and verify metrics.csv, per-env PDFs, and master PDF appear in the scratch directory.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:58:13.143Z"
           },
           {
             "id": 3,
@@ -3697,9 +3705,10 @@
               2
             ],
             "details": "Insert nbconvert-safe visualization cells that read outputs/notebooks/reporting_demo/metrics.csv via pandas head(), embed PDF pages via IPython.display.IFrame, and add text cells referencing outputs/smoke_report/ artifacts for parity checks.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run notebook rendering cells and confirm CSV table and PDF iframe display correctly when exporting or running interactively.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:58:13.154Z"
           },
           {
             "id": 4,
@@ -3711,14 +3720,16 @@
               3
             ],
             "details": "Add instructional markdown covering step-by-step commands, mention Task Master tag context, describe how scratch previews relate to outputs/smoke_report/, and highlight the smoke test command for full artifact regeneration.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Render markdown in the notebook to ensure instructions appear clearly and reference the correct commands and directories.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T18:58:13.166Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
-        "expansionPrompt": "Use the cached metrics rows from Task 5 to call `analog_image_generator.reporting.build_reports` inside each demo notebook, targeting a scratch folder like `outputs/notebooks/reporting_demo/`. Include metadata columns (`env`, `seed`, `task_master_tag`, `stacked_packages`, etc.), embed CSV previews via pandas `head()` and show PDF snippets (e.g., `IPython.display.IFrame`) while cross-referencing smoke artifacts under `outputs/smoke_report/`. Document how these hooks connect to the PRD/Task Master workflow and remind readers to re-run `python scripts/smoke_test.py`."
+        "expansionPrompt": "Use the cached metrics rows from Task 5 to call `analog_image_generator.reporting.build_reports` inside each demo notebook, targeting a scratch folder like `outputs/notebooks/reporting_demo/`. Include metadata columns (`env`, `seed`, `task_master_tag`, `stacked_packages`, etc.), embed CSV previews via pandas `head()` and show PDF snippets (e.g., `IPython.display.IFrame`) while cross-referencing smoke artifacts under `outputs/smoke_report/`. Document how these hooks connect to the PRD/Task Master workflow and remind readers to re-run `python scripts/smoke_test.py`.",
+        "updatedAt": "2025-11-20T18:58:13.166Z"
       },
       {
         "id": "7",
@@ -3735,17 +3746,18 @@
           "5",
           "6"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Audit notebooks for required override hooks",
             "description": "Review each fluvial demo notebook to locate where seed/stack/mode overrides and debug controls should live before adding UI cells.",
             "dependencies": [],
-            "details": "Catalog existing generator helper cells, note how Task 3’s helper is invoked, and document where CURRENT_SEED, STACK_MODE, and DEBUG_FLAGS need to be injected so later steps can wire ipywidgets correctly.",
-            "status": "pending",
+            "details": "Catalog existing generator helper cells, note how Task 3’s helper is invoked, and document where CURRENT_SEED, STACK_MODE, and DEBUG_FLAGS need to be injected so later steps can wire ipywidgets correctly.\n<info added on 2025-11-20T19:15:19.713Z>\nNotebook audit summary: `notebooks/fluvial_meandering.ipynb` cell 24 now resolves `.taskmaster/tasks/tasks.json` by walking `Path.cwd()` parents before loading `tasks_snapshot`, so the Task Master snapshot cell is root-safe and ready for widget-driven logging; cells 26/22/24 in the meandering/braided/anastomosing notebooks already centralize `OVERRIDE_STATE[\"seed\"]`, `[\"stack_mode\"]`, and shared `DEBUG_FLAGS` plus `render_metadata_table()`/`build_debug_accordion()` helpers, so those cells are the injection points where the upcoming `CURRENT_SEED`/`STACK_MODE`/`DEBUG_FLAGS` ipywidgets will write overrides before calling `run_fluvial_override`; the trailing “Debug + QA checklist” markdown cells (indices 28/24/26 in the respective notebooks) remain unchanged and are where we’ll surface the new override + metadata tasks once the widgets are wired, keeping the Task 7 checklist requirements visible.\n</info added on 2025-11-20T19:15:19.713Z>",
+            "status": "done",
             "testStrategy": "Open notebooks to confirm all relevant sections were inventoried and annotated for upcoming insertions.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:15:24.858Z"
           },
           {
             "id": 2,
@@ -3754,10 +3766,11 @@
             "dependencies": [
               1
             ],
-            "details": "Build reusable UI helper code using widgets.IntText, ToggleButtons, and Checkbox or dictionary editors, ensure values propagate into the generator helper from Task 3 via explicit assignments, and document how to pass overrides when re-running runs.",
-            "status": "pending",
+            "details": "Build reusable UI helper code using widgets.IntText, ToggleButtons, and Checkbox or dictionary editors, ensure values propagate into the generator helper from Task 3 via explicit assignments, and document how to pass overrides when re-running runs.\n<info added on 2025-11-20T19:16:27.528Z>\nImplemented shared “Debug + seed override controls” cells in `notebooks/fluvial_meandering.ipynb`, `notebooks/fluvial_braided.ipynb`, and `notebooks/fluvial_anastomosing.ipynb` that define `OVERRIDE_STATE`/`DEBUG_FLAGS`, reuse `run_fluvial_override()` (routing to `analog_image_generator.geologic_generators.generate_fluvial` vs `stacked_channels.build_stacked_fluvial`), and draw ipywidgets dropdown + ToggleButtons + IntText controls so the Run override button (or `_run_override`) updates `OVERRIDE_STATE` before re-running the helper while exposing single vs stacked package toggles, seed overrides, and a widgets-is-None fallback for manual editing.\n</info added on 2025-11-20T19:16:27.528Z>",
+            "status": "done",
             "testStrategy": "Interactively change widget values, rerun the generator helper, and confirm override variables update the rendered realization.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:16:32.538Z"
           },
           {
             "id": 3,
@@ -3766,10 +3779,11 @@
             "dependencies": [
               2
             ],
-            "details": "Format tables highlighting stacked_packages, package_count, erosion_relief_px, and produce accompanying JSON output (e.g., via json.dumps) saved/printed so engineers can copy logs.",
-            "status": "pending",
+            "details": "Format tables highlighting stacked_packages, package_count, erosion_relief_px, and produce accompanying JSON output (e.g., via json.dumps) saved/printed so engineers can copy logs.\n<info added on 2025-11-20T19:17:25.402Z>\nIn notebooks/fluvial_meandering.ipynb, notebooks/fluvial_braided.ipynb, and notebooks/fluvial_anastomosing.ipynb the `_run_override` callback now always invokes `render_metadata_table(masks, params)` so every override prints the pandas summary row (preset, stack_mode, seed, package_count, erosion_relief_px, qa_flags), any stacked package DataFrames, and the JSON dump via `json.dumps(metadata, indent=2)` for Task Master capture, and `build_debug_accordion` adds a metadata `widgets.Output` pane that mirrors the same JSON so accordion logs include package_count/erosion_relief_px/qa flags alongside previews and parameter dictionaries.\n</info added on 2025-11-20T19:17:25.402Z>",
+            "status": "done",
             "testStrategy": "Run cells after generator execution to verify tables populate with current run data and JSON reflects the same metadata.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:17:31.975Z"
           },
           {
             "id": 4,
@@ -3778,10 +3792,11 @@
             "dependencies": [
               3
             ],
-            "details": "Create accordion sections with children outputs (plots, pprint data) wired to existing mask arrays/params, ensuring toggles render cleanly and don’t re-run heavy computations unnecessarily.",
-            "status": "pending",
+            "details": "Create accordion sections with children outputs (plots, pprint data) wired to existing mask arrays/params, ensuring toggles render cleanly and don’t re-run heavy computations unnecessarily.\n<info added on 2025-11-20T19:18:28.448Z>\n`build_debug_accordion()` in `notebooks/fluvial_meandering.ipynb`, `notebooks/fluvial_braided.ipynb`, and `notebooks/fluvial_anastomosing.ipynb` instantiates three `widgets.Output` containers that call `_plot_masks(analog, masks, f\"{STYLE_LABEL} override preview\")`, `pprint(params)`, and `json.dumps(masks.get(\"realization_metadata\", {}), indent=2)` before passing them to `widgets.Accordion([...])`, giving per-override toggles for raw mask previews, parameter dictionaries, and metadata payloads without rerunning the expensive plotting code.\n</info added on 2025-11-20T19:18:28.448Z>",
+            "status": "done",
             "testStrategy": "Expand/collapse each accordion to confirm contents display correctly and remain synchronized with the current realization data.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:18:34.625Z"
           },
           {
             "id": 5,
@@ -3790,15 +3805,17 @@
             "dependencies": [
               4
             ],
-            "details": "Reuse the checklist template defined under Task 1, ensure items cover seed overrides, stack toggles, metadata table, debug accordions, and provide instructions for ticking items post-validation.",
-            "status": "pending",
+            "details": "Reuse the checklist template defined under Task 1, ensure items cover seed overrides, stack toggles, metadata table, debug accordions, and provide instructions for ticking items post-validation.\n<info added on 2025-11-20T19:19:17.022Z>\nAdded a closing “### Debug + QA checklist” markdown cell to `notebooks/fluvial_meandering.ipynb`, `notebooks/fluvial_braided.ipynb`, and `notebooks/fluvial_anastomosing.ipynb` that reuses the Task 1 template so QA must capture the seed override + stack toggle screenshot, log the `masks[\"realization_metadata\"]` table output into `.taskmaster/tasks/tasks.json`, expand the debug accordion to inspect raw mask/mode parameter dictionaries, rerun `python scripts/validate_geo_anchors.py` and `python scripts/smoke_test.py`, and only tick the “checked into git” box once those validations pass before calling the Task Master subtask done.\n</info added on 2025-11-20T19:19:17.022Z>",
+            "status": "done",
             "testStrategy": "Render notebook preview to verify the checklist mirrors Task 1, includes all new features, and can be manually checked off during QA review.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-20T19:19:22.312Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Introduce ipywidget-based controls (or explicit override variables) for `CURRENT_SEED`, `STACK_MODE`, and `DEBUG_FLAGS`, weave them into the generator helper from Task 3 before execution, and surface tables sourced from `masks[\"realization_metadata\"]` (especially stacked package summaries). Provide toggles/accordions to show raw masks, parameter dictionaries, and JSON payloads for Task Master logging, and end each notebook with the standardized QA checklist from Task 1 so engineers can tick off the demonstrated features."
+        "expansionPrompt": "Introduce ipywidget-based controls (or explicit override variables) for `CURRENT_SEED`, `STACK_MODE`, and `DEBUG_FLAGS`, weave them into the generator helper from Task 3 before execution, and surface tables sourced from `masks[\"realization_metadata\"]` (especially stacked package summaries). Provide toggles/accordions to show raw masks, parameter dictionaries, and JSON payloads for Task Master logging, and end each notebook with the standardized QA checklist from Task 1 so engineers can tick off the demonstrated features.",
+        "updatedAt": "2025-11-20T19:19:22.312Z"
       },
       {
         "id": "8",
@@ -4063,9 +4080,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-20T18:48:28.754Z",
+      "lastModified": "2025-11-20T19:19:22.316Z",
       "taskCount": 10,
-      "completedCount": 4,
+      "completedCount": 7,
       "tags": [
         "fluvial-v1-demo"
       ]
