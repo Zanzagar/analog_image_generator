@@ -108,6 +108,14 @@ def build_live_fluvial_panel(
     batch_count = widgets.IntText(value=3, description="Image count")
     batch_button = widgets.Button(description="Run batch summary", button_style="info", icon="table")
     batch_output = widgets.Output()
+    batch_grid_output = widgets.Output()
+    batch_grid_mode = widgets.Dropdown(
+        options=[("Facies composite", "color"), ("Grayscale", "gray"), ("Channel mask", "channel")],
+        value="color",
+        description="Grid view",
+    )
+    batch_images_cache: dict[str, list[np.ndarray]] = {}
+    batch_labels: list[str] = []
 
     style_groups_map = {
         "meandering": ["general", "meandering", "facies_overlays"],
@@ -167,11 +175,23 @@ def build_live_fluvial_panel(
                 state["pending"] = False
                 render_preview()
 
+    def render_batch_grid(*_):
+        with batch_grid_output:
+            batch_grid_output.clear_output()
+            arrays = batch_images_cache.get(batch_grid_mode.value, [])
+            if not arrays:
+                return
+            grid = _image_grid_widget(arrays, batch_labels)
+            if grid is not None:
+                display(grid)
+
     def run_batch(_=None):
         seeds = [int(batch_start_seed.value) + i for i in range(int(batch_count.value))]
         params = current_params()
         rows = []
-        thumbs: list[np.ndarray] = []
+        images_color: list[np.ndarray] = []
+        images_gray: list[np.ndarray] = []
+        images_channel: list[np.ndarray] = []
         labels: list[str] = []
         generator = interactive._resolve_generator("fluvial")
         for seed in seeds:
@@ -184,8 +204,16 @@ def build_live_fluvial_panel(
             # Collect a color thumbnail for the grid
             analog, masks = generator(params_seed)
             color = interactive._colorize_masks("fluvial", masks, analog.shape)
-            thumbs.append(color)
+            channel = masks.get("channel") or masks.get("branch_channel") or np.zeros_like(analog)
+            images_color.append(color)
+            images_gray.append(analog)
+            images_channel.append(channel)
             labels.append(f"seed {seed}")
+        batch_images_cache.clear()
+        batch_images_cache["color"] = images_color
+        batch_images_cache["gray"] = images_gray
+        batch_images_cache["channel"] = images_channel
+        batch_labels[:] = labels
         with batch_output:
             batch_output.clear_output()
             if rows:
@@ -200,12 +228,13 @@ def build_live_fluvial_panel(
                 hist = _batch_hist_widget(df)
                 if hist is not None:
                     display(hist)
-                grid = _image_grid_widget(thumbs, labels)
+                grid = _image_grid_widget(batch_images_cache.get(batch_grid_mode.value, []), labels)
                 if grid is not None:
                     display(Markdown("**Batch composite grid**"))
                     display(grid)
             else:
                 print("No batch frames produced.")
+        render_batch_grid()
 
     def schedule_preview(change=None):
         if not auto_run_toggle.value:
@@ -217,6 +246,7 @@ def build_live_fluvial_panel(
 
     run_button.on_click(lambda _: render_preview())
     batch_button.on_click(run_batch)
+    batch_grid_mode.observe(render_batch_grid, names="value")
     mode_toggle.observe(apply_visibility, names="value")
     style_dropdown.observe(apply_visibility, names="value")
     mode_toggle.observe(schedule_preview, names="value")
@@ -225,7 +255,7 @@ def build_live_fluvial_panel(
     for w in slider_widgets.values():
         w.observe(schedule_preview, names="value")
 
-    controls = widgets.VBox(
+    core_controls = widgets.VBox(
         [
             style_dropdown,
             mode_toggle,
@@ -234,15 +264,32 @@ def build_live_fluvial_panel(
             auto_run_toggle,
             status,
             run_button,
+        ]
+    )
+    batch_controls = widgets.VBox(
+        [
+            widgets.HTML("<b>Batch preview</b>"),
             batch_start_seed,
             batch_count,
             batch_button,
+            batch_grid_mode,
+            batch_grid_output,
             batch_output,
         ]
     )
 
     ui = widgets.HBox(
-        [slider_box, widgets.VBox([controls, output_area], layout=widgets.Layout(width="100%"))],
+        [
+            slider_box,
+            widgets.VBox(
+                [
+                    core_controls,
+                    output_area,
+                    batch_controls,
+                ],
+                layout=widgets.Layout(width="100%"),
+            ),
+        ],
         layout=widgets.Layout(width="100%"),
     )
     status.value = "<em>Ready — click Run preview or enable Auto-run.</em>"
