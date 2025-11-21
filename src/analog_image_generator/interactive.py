@@ -882,7 +882,11 @@ def _make_preview_row(
 
     analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
     color_box = ipw.VBox(
-        [ipw.HTML("<b>Facies composite</b>"), color_img, legend_widget],
+        [
+            ipw.HTML("<b>Facies composite</b>"),
+            color_img,
+            ipw.Accordion(children=[legend_widget], selected_index=None, layout=ipw.Layout(width="220px")),
+        ],
         layout=ipw.Layout(align_items="center"),
     )
     channel_box = ipw.VBox([ipw.HTML("<b>Channel mask</b>"), channel_img], layout=ipw.Layout(align_items="center"))
