@@ -107,11 +107,15 @@ def generate_meandering(params: dict, rng: np.random.Generator) -> tuple[Array, 
         drift_frac,
         rng,
     )
+    w_min = float(params.get("channel_width_min", 25.0))
+    w_max = float(params.get("channel_width_max", 45.0))
+    if w_max < w_min:
+        w_min, w_max = w_max, w_min
     channel_mask = meander_variable_channel(
         centerline,
         (height, width),
-        float(params.get("channel_width_min", 25.0)),
-        float(params.get("channel_width_max", 45.0)),
+        w_min,
+        w_max,
         rng,
     )
     levee_mask = add_levees(channel_mask, int(params.get("levee_iterations", 5)))
@@ -271,13 +275,17 @@ def meander_variable_channel(
         height, width = shape.shape
     else:
         height, width = shape
+    # Guard against inverted bounds
+    if width_max < width_min:
+        width_min, width_max = width_max, width_min
+    span = max(1.0, abs(width_max - width_min))
     columns = np.linspace(0.0, 1.0, width)
     width_profile = np.interp(
         columns,
         [0.0, 0.3, 0.7, 1.0],
         [width_min, width_max, width_min * 1.1, width_max * 0.9],
     )
-    width_profile += rng.normal(0.0, (width_max - width_min) * 0.1, size=width)
+    width_profile += rng.normal(0.0, span * 0.1, size=width)
     width_profile = np.clip(width_profile, width_min, width_max)
     rows = np.arange(height, dtype=np.float32)[:, None]
     center = centerline[None, :]
