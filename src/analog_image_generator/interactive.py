@@ -777,7 +777,15 @@ def preview_sequence(env: str, params: Mapping[str, float] | None, seeds: Iterab
         preview = stats.preview_metrics(analog, masks, env_key)
         metrics = {key: round(float(val), 4) for key, val in preview.items()}
         frames.append({"seed": int(seed), "params": merged_params, "metrics": metrics})
-        row = _make_preview_row(analog, color, channel, metrics, height=height, width=width)
+        row = _make_preview_row(
+            analog,
+            color,
+            channel,
+            metrics,
+            height=height,
+            width=width,
+            style=merged_params.get("style"),
+        )
         rows.append(row)
 
     return PreviewResult(layout=ipw.VBox(rows, layout=ipw.Layout(width="100%")), frames=frames)
@@ -890,12 +898,13 @@ def _make_preview_row(
     *,
     height: int,
     width: int,
+    style: str | None = None,
 ) -> ipw.Widget:
     analog_img = _array_to_image_widget(analog, cmap="gray", width=width, height=height)
     color_img = _array_to_image_widget(color, cmap=None, width=width, height=height)
     channel_img = _array_to_image_widget(channel_mask, cmap="gray", width=width, height=height)
     variogram_img = _variogram_plot_widget(analog, metrics)
-    legend_widget = _palette_legend_widget("fluvial", style=None)
+    legend_widget = _palette_legend_widget("fluvial", style=style)
 
     analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
     color_box = ipw.VBox(
@@ -932,7 +941,15 @@ def _array_to_image_widget(
     height: int,
 ) -> ipw.Image:
     png_bytes = _array_to_png_bytes(array, cmap=cmap)
-    return ipw.Image(value=png_bytes, format="png", width=width // 2, height=height // 2)
+    size_w = width // 2
+    size_h = height // 2
+    return ipw.Image(
+        value=png_bytes,
+        format="png",
+        width=size_w,
+        height=size_h,
+        layout=ipw.Layout(width=f"{size_w}px", height=f"{size_h}px"),
+    )
 
 
 def _array_to_png_bytes(array: np.ndarray, *, cmap: str | None) -> bytes:
