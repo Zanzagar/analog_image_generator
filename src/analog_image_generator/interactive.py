@@ -768,7 +768,7 @@ def preview_sequence(env: str, params: Mapping[str, float] | None, seeds: Iterab
         merged_params.setdefault("style", "meandering")
         merged_params["seed"] = int(seed)
         analog, masks = generator(merged_params)
-        color = _colorize_masks(env_key, masks, analog.shape)
+        color = _colorize_masks(env_key, masks, analog.shape, style=merged_params.get("style"))
         channel = masks.get("channel")
         if channel is None:
             channel = masks.get("branch_channel")
@@ -811,7 +811,7 @@ def run_param_batch(
         params["style"] = style
         params["mode"] = mode
         analog, masks = generator(params)
-        color = _colorize_masks(env_key, masks, analog.shape)
+        color = _colorize_masks(env_key, masks, analog.shape, style=params.get("style"))
         slug = f"{env_key}-{style}-{seed:03d}"
         analog_path = output_path / f"{slug}-gray.png"
         color_path = output_path / f"{slug}-color.png"
@@ -858,11 +858,20 @@ def _extract_slider_defaults(
     return defaults
 
 
-def _colorize_masks(env: str, masks: Mapping[str, np.ndarray], shape: tuple[int, int]):
+def _colorize_masks(env: str, masks: Mapping[str, np.ndarray], shape: tuple[int, int], style: str | None = None):
     palette = utils.palette_for_env("fluvial")
+    style = (style or "").lower()
+    primary_by_style = {
+        "meandering": {"channel", "pointbar", "levee", "floodplain", "oxbow"},
+        "braided": {"channel", "bar", "chute", "floodplain"},
+        "anastomosing": {"branch_channel", "levee", "marsh", "fan", "floodplain"},
+    }
+    allowed = primary_by_style.get(style)
     channel_masks: dict[str, np.ndarray] = {}
     for entry in palette:
         facies = entry["facies"]
+        if allowed and facies not in allowed:
+            continue
         mask_key = _FACIES_TO_MASK.get(facies, facies)
         mask = masks.get(mask_key)
         if mask is None:
