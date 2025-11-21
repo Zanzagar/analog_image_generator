@@ -878,7 +878,7 @@ def _make_preview_row(
     color_img = _array_to_image_widget(color, cmap=None, width=width, height=height)
     channel_img = _array_to_image_widget(channel_mask, cmap="gray", width=width, height=height)
     variogram_img = _variogram_plot_widget(analog, metrics)
-    legend_widget = _palette_legend_widget("fluvial")
+    legend_widget = _palette_legend_widget("fluvial", style=None)
 
     analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
     color_box = ipw.VBox(
@@ -958,14 +958,26 @@ def _variogram_plot_widget(gray: np.ndarray, metrics: Mapping[str, float]) -> ip
     return ipw.Image(value=buf.read(), format="png", width=200, height=160)
 
 
-def _palette_legend_widget(env: str) -> ipw.HTML:
-    """Render a simple swatch legend for the current environment palette."""
+def _palette_legend_widget(env: str, style: str | None = None) -> ipw.HTML:
+    """Render a simple swatch legend filtered by style."""
 
     palette = utils.palette_for_env(env)
+    style = (style or "").lower()
+    # Current palette only carries a union facies list; filter to plausible per-style subsets.
+    if style == "meandering":
+        include = {"channel", "pointbar", "levee", "floodplain", "oxbow"}
+    elif style == "braided":
+        include = {"channel", "pointbar"}  # treat pointbar as bar for now; palette lacks bar/chute entries
+    elif style == "anastomosing":
+        include = {"channel", "levee", "floodplain"}  # until palette carries marsh/branch_channel
+    else:
+        include = None
     rows = []
     for entry in palette:
         color = entry.get("color", "#cccccc")
         facies = entry.get("facies", "facies")
+        if include and facies not in include:
+            continue
         rows.append(
             f'<div style="display:flex;align-items:center;padding:2px 0;">'
             f'<span style="display:inline-block;width:14px;height:14px;background:{color};'
