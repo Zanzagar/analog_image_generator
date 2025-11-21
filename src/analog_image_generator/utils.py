@@ -37,11 +37,26 @@ __all__ = [
 
 PALETTES: dict[str, list[dict[str, str]]] = {
     "fluvial": [
+        # Meandering
         {"facies": "channel", "color": "#0f3057"},
         {"facies": "pointbar", "color": "#d98943"},
         {"facies": "levee", "color": "#f2c335"},
         {"facies": "floodplain", "color": "#6b705c"},
         {"facies": "oxbow", "color": "#9a6d38"},
+        # Braided
+        {"facies": "bar", "color": "#f4a261"},
+        {"facies": "chute", "color": "#c06c84"},
+        # Anastomosing
+        {"facies": "branch_channel", "color": "#264653"},
+        {"facies": "marsh", "color": "#81b29a"},
+        {"facies": "fan", "color": "#e07a5f"},
+        # Overlays / facies textures (kept grayscale-ish)
+        {"facies": "channel_fill", "color": "#b0bec5"},
+        {"facies": "cross_bed", "color": "#9e9e9e"},
+        {"facies": "ripple", "color": "#8c8c8c"},
+        {"facies": "fining_upward", "color": "#777777"},
+        {"facies": "overbank_mudstone", "color": "#999999"},
+        {"facies": "lateral_accretion", "color": "#bbbbbb"},
     ],
     "braided": [
         {"facies": "thread", "color": "#184e77"},

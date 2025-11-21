@@ -638,6 +638,14 @@ _FACIES_TO_MASK = {
     "bar": "bar",
     "chute": "chute",
     "marsh": "marsh",
+    "branch_channel": "branch_channel",
+    "fan": "fan",
+    "channel_fill": "channel_fill",
+    "cross_bed": "cross_bed",
+    "ripple": "ripple",
+    "fining_upward": "fining_upward",
+    "overbank_mudstone": "overbank_mudstone",
+    "lateral_accretion": "lateral_accretion",
 }
 
 _PACKAGE_STYLE_OPTIONS = ("meandering", "braided", "anastomosing")
@@ -963,13 +971,12 @@ def _palette_legend_widget(env: str, style: str | None = None) -> ipw.HTML:
 
     palette = utils.palette_for_env(env)
     style = (style or "").lower()
-    # Current palette only carries a union facies list; filter to plausible per-style subsets.
     if style == "meandering":
-        include = {"channel", "pointbar", "levee", "floodplain", "oxbow"}
+        include = {"channel", "pointbar", "levee", "floodplain", "oxbow", "channel_fill", "cross_bed", "ripple", "fining_upward", "overbank_mudstone", "lateral_accretion"}
     elif style == "braided":
-        include = {"channel", "pointbar"}  # treat pointbar as bar for now; palette lacks bar/chute entries
+        include = {"channel", "bar", "chute", "floodplain", "channel_fill", "cross_bed", "ripple", "fining_upward", "overbank_mudstone", "lateral_accretion"}
     elif style == "anastomosing":
-        include = {"channel", "levee", "floodplain"}  # until palette carries marsh/branch_channel
+        include = {"branch_channel", "levee", "marsh", "fan", "floodplain", "channel_fill", "cross_bed", "ripple", "fining_upward", "overbank_mudstone", "lateral_accretion"}
     else:
         include = None
     rows = []
