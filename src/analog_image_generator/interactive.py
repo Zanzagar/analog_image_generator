@@ -768,7 +768,13 @@ def preview_sequence(env: str, params: Mapping[str, float] | None, seeds: Iterab
         merged_params.setdefault("style", "meandering")
         merged_params["seed"] = int(seed)
         analog, masks = generator(merged_params)
-        color = _colorize_masks(env_key, masks, analog.shape, style=merged_params.get("style"))
+        color = _colorize_masks(
+            env_key,
+            masks,
+            analog.shape,
+            style=merged_params.get("style"),
+            show_overlays=bool(merged_params.get("_show_overlays")),
+        )
         channel = masks.get("channel")
         if channel is None:
             channel = masks.get("branch_channel")
@@ -866,7 +872,13 @@ def _extract_slider_defaults(
     return defaults
 
 
-def _colorize_masks(env: str, masks: Mapping[str, np.ndarray], shape: tuple[int, int], style: str | None = None):
+def _colorize_masks(
+    env: str,
+    masks: Mapping[str, np.ndarray],
+    shape: tuple[int, int],
+    style: str | None = None,
+    show_overlays: bool = False,
+):
     palette = utils.palette_for_env("fluvial")
     style = (style or "").lower()
     primary_by_style = {
@@ -874,7 +886,7 @@ def _colorize_masks(env: str, masks: Mapping[str, np.ndarray], shape: tuple[int,
         "braided": {"channel", "bar", "chute", "floodplain"},
         "anastomosing": {"branch_channel", "levee", "marsh", "fan", "floodplain"},
     }
-    allowed = primary_by_style.get(style)
+    allowed = None if show_overlays else primary_by_style.get(style)
     channel_masks: dict[str, np.ndarray] = {}
     for entry in palette:
         facies = entry["facies"]

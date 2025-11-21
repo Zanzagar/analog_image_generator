@@ -102,6 +102,7 @@ def build_live_fluvial_panel(
     status = widgets.HTML("<em>Idle</em>")
     run_button = widgets.Button(description="Run preview", button_style="primary", icon="eye")
     output_area = widgets.Output()
+    overlays_toggle = widgets.Checkbox(value=False, description="Show overlay facies")
 
     # Batch summary helpers
     batch_start_seed = widgets.IntText(value=42, description="Start seed")
@@ -145,6 +146,7 @@ def build_live_fluvial_panel(
         params["style"] = style_dropdown.value
         params["mode"] = mode_toggle.value
         params["seed"] = seed_box.value
+        params["_show_overlays"] = overlays_toggle.value
         if params["mode"] == "stacked":
             params["package_styles"] = [label.lower() for label in package_mix.value]
         return params
@@ -202,7 +204,13 @@ def build_live_fluvial_panel(
             rows.append({"seed": seed, **preview.frames[0]["metrics"]})
             # Collect a color thumbnail for the grid
             analog, masks = generator(params_seed)
-            color = interactive._colorize_masks("fluvial", masks, analog.shape)
+            color = interactive._colorize_masks(
+                "fluvial",
+                masks,
+                analog.shape,
+                style=params_seed.get("style"),
+                show_overlays=bool(params_seed.get("_show_overlays")),
+            )
             channel = masks.get("channel")
             if channel is None:
                 channel = masks.get("branch_channel")
@@ -260,6 +268,7 @@ def build_live_fluvial_panel(
             mode_toggle,
             package_mix,
             seed_box,
+            overlays_toggle,
             auto_run_toggle,
             status,
             run_button,
