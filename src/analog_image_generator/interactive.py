@@ -983,7 +983,7 @@ def _array_to_png_bytes(array: np.ndarray, *, cmap: str | None) -> bytes:
 
 
 def _variogram_plot_widget(gray: np.ndarray, metrics: Mapping[str, float]) -> ipw.Image:
-    """Render a log-log variogram plot with power-law fit for the preview row."""
+    """Render a variogram plot with power-law fit for the preview row."""
 
     import io
     from matplotlib import pyplot as plt
@@ -996,12 +996,12 @@ def _variogram_plot_widget(gray: np.ndarray, metrics: Mapping[str, float]) -> ip
     fit_line = np.exp(intercept) * (lags ** beta)
 
     fig, ax = plt.subplots(figsize=(3.0, 2.4), dpi=120)
-    ax.loglog(lags, gamma, "o", markersize=3, label="Variogram (iso)")
-    ax.loglog(lags, fit_line, "-", label=f"Fit β={beta:.3f}, D={stats.fractal_dimension(beta):.3f}")
+    ax.plot(lags, gamma, "o", markersize=3, label="Variogram (iso)")
+    ax.plot(lags, fit_line, "-", label=f"Fit β={beta:.3f}, D={stats.fractal_dimension(beta):.3f}")
     ax.set_xlabel("Lag (px)")
     ax.set_ylabel("Semivariance")
-    ax.legend(fontsize=7, loc="lower right")
-    ax.grid(True, which="both", ls=":", alpha=0.4)
+    ax.legend(fontsize=7, loc="upper left")
+    ax.grid(True, ls=":", alpha=0.4)
     fig.tight_layout()
 
     buf = io.BytesIO()
