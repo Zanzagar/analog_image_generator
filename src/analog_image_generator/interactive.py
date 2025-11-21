@@ -911,38 +911,45 @@ def _make_preview_row(
     height: int,
     width: int,
     style: str | None = None,
+    show_overlays: bool = False,
 ) -> ipw.Widget:
     analog_img = _array_to_image_widget(analog, cmap="gray", width=width, height=height)
     color_img = _array_to_image_widget(color, cmap=None, width=width, height=height)
     channel_img = _array_to_image_widget(channel_mask, cmap="gray", width=width, height=height)
     variogram_img = _variogram_plot_widget(analog, metrics)
-    legend_widget = _palette_legend_widget("fluvial", style=style)
+    legend_widget = _palette_legend_widget("fluvial", style=style, show_overlays=show_overlays)
 
-    analog_box = ipw.VBox([ipw.HTML("<b>Grayscale analog</b>"), analog_img], layout=ipw.Layout(align_items="center"))
-    color_box = ipw.VBox(
+    # Headers
+    headers = ipw.HBox(
         [
-            ipw.HTML("<b>Facies composite</b>"),
-            color_img,
-            ipw.Accordion(children=[legend_widget], selected_index=None, layout=ipw.Layout(width="220px")),
+            ipw.HTML("<b>Grayscale analog</b>", layout=ipw.Layout(width="180px")),
+            ipw.HTML("<b>Facies composite</b>", layout=ipw.Layout(width="180px")),
+            ipw.HTML("<b>Channel mask</b>", layout=ipw.Layout(width="180px")),
+            ipw.HTML("<b>Variogram (log-log)</b>", layout=ipw.Layout(width="200px")),
+            ipw.HTML("<b>Metrics</b>", layout=ipw.Layout(width="220px")),
         ],
-        layout=ipw.Layout(align_items="center"),
-    )
-    channel_box = ipw.VBox([ipw.HTML("<b>Channel mask</b>"), channel_img], layout=ipw.Layout(align_items="center"))
-    variogram_box = ipw.VBox(
-        [ipw.HTML("<b>Variogram (log-log)</b>"), variogram_img],
-        layout=ipw.Layout(align_items="center"),
+        layout=ipw.Layout(align_items="flex-start"),
     )
 
-    # Simple legend text from palette order
-    palette = utils.palette_for_env("fluvial")
-    legend_text = ", ".join(entry["facies"] for entry in palette)
     metrics_html = ipw.HTML(
-        "<b>Metrics</b><br>"
-        + "<br>".join(f"{name}: {value:.4f}" for name, value in metrics.items())
-        + "<br><br><b>Legend (facies order)</b><br>"
-        + legend_text
+        "<br>".join(f"{name}: {value:.4f}" for name, value in metrics.items()),
+        layout=ipw.Layout(width="220px"),
     )
-    return ipw.HBox([analog_box, color_box, channel_box, variogram_box, metrics_html])
+
+    legend_acc = ipw.Accordion(children=[legend_widget], selected_index=None, layout=ipw.Layout(width="220px"))
+    legend_acc.set_title(0, "Legend (style-specific)")
+
+    row = ipw.HBox(
+        [
+            analog_img,
+            color_img,
+            channel_img,
+            variogram_img,
+            ipw.VBox([metrics_html, legend_acc], layout=ipw.Layout(align_items="flex-start")),
+        ],
+        layout=ipw.Layout(align_items="flex-start"),
+    )
+    return ipw.VBox([headers, row], layout=ipw.Layout(width="100%"))
 
 
 def _array_to_image_widget(
@@ -1004,17 +1011,19 @@ def _variogram_plot_widget(gray: np.ndarray, metrics: Mapping[str, float]) -> ip
     return ipw.Image(value=buf.read(), format="png", width=200, height=160)
 
 
-def _palette_legend_widget(env: str, style: str | None = None) -> ipw.HTML:
-    """Render a simple swatch legend filtered by style."""
+def _palette_legend_widget(env: str, style: str | None = None, show_overlays: bool = False) -> ipw.HTML:
+    """Render a simple swatch legend filtered by style; optionally include overlays."""
 
     palette = utils.palette_for_env(env)
     style = (style or "").lower()
-    if style == "meandering":
-        include = {"channel", "pointbar", "levee", "floodplain", "oxbow", "channel_fill", "cross_bed", "ripple", "fining_upward", "overbank_mudstone", "lateral_accretion"}
+    if show_overlays:
+        include = None
+    elif style == "meandering":
+        include = {"channel", "pointbar", "levee", "floodplain", "oxbow"}
     elif style == "braided":
-        include = {"channel", "bar", "chute", "floodplain", "channel_fill", "cross_bed", "ripple", "fining_upward", "overbank_mudstone", "lateral_accretion"}
+        include = {"channel", "bar", "chute", "floodplain"}
     elif style == "anastomosing":
-        include = {"branch_channel", "levee", "marsh", "fan", "floodplain", "channel_fill", "cross_bed", "ripple", "fining_upward", "overbank_mudstone", "lateral_accretion"}
+        include = {"branch_channel", "levee", "marsh", "fan", "floodplain"}
     else:
         include = None
     rows = []
