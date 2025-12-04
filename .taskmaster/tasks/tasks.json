@@ -4355,5 +4355,691 @@
       "description": "Tasks for fluvial-v1-demo context",
       "updated": "2025-11-21T19:41:51.826Z"
     }
+  },
+  "fluvial-realism-v1": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Implement Geometric Helper Functions for Physics-Based Generation",
+        "description": "Create a new module or extend utils.py with geometric computation helpers required by physics-based fluvial generators: local curvature calculation, circular arc generation, wavelength/sinuosity measurement, and neck distance detection.",
+        "details": "Create `src/analog_image_generator/geometry_helpers.py` with the following functions:\n\n1. `compute_local_curvature(centerline: NDArray) -> NDArray`\n   - Use finite differences: κ = (x'y'' - y'x'') / (x'² + y'²)^(3/2)\n   - Apply Gaussian smoothing (σ=3-5) before differentiation to reduce noise\n   - Return signed curvature array same length as centerline\n\n2. `generate_circular_arc(center: tuple, radius: float, arc_angle: float, start_angle: float, n_points: int) -> NDArray`\n   - Generate points along a circular arc\n   - Return shape (n_points, 2) with (x, y) coordinates\n\n3. `compute_arc_angle(wavelength: float, radius: float) -> float`\n   - From geometry: arc_angle ≈ 2 * arcsin(wavelength / (4 * radius))\n   - Clamp to valid range [0, π]\n\n4. `measure_wavelength(centerline: NDArray) -> float`\n   - Detect zero-crossings of curvature\n   - Wavelength = 2× mean distance between successive same-sign extrema\n\n5. `measure_sinuosity(centerline: NDArray, total_length: int) -> float`\n   - S = path_length / straight_line_distance\n   - path_length from cumulative Euclidean distances\n\n6. `measure_radius_of_curvature(centerline: NDArray) -> NDArray`\n   - R_c = 1 / |κ| where κ is curvature\n   - Return R_c at bend apexes (local curvature maxima)\n\n7. `detect_neck_cutoff_candidates(centerline: NDArray, channel_width: float, search_range: tuple) -> list[tuple[int, int]]`\n   - Find pairs (x1, x2) where |y(x1) - y(x2)| < channel_width\n   - Constrain x2 - x1 to be within 3-20× channel_width\n\nAll functions should operate on numpy arrays and be fully vectorized where possible.",
+        "testStrategy": "Unit tests in `tests/test_geometry_helpers.py`:\n1. Test `compute_local_curvature` with known curves (circle → constant κ, straight line → κ=0)\n2. Test `generate_circular_arc` produces points equidistant from center\n3. Test `measure_wavelength` with synthetic sinusoid of known period\n4. Test `measure_sinuosity` with known path (S=1 for straight line, S=π/2 for semicircle)\n5. Test `detect_neck_cutoff_candidates` with synthetic centerline containing deliberate neck",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Curvature Computation with Gaussian Smoothing and Finite Differences",
+            "description": "Create compute_local_curvature() and measure_radius_of_curvature() functions using the finite difference formula κ = (x'y'' - y'x'') / (x'² + y'²)^(3/2) with Gaussian pre-smoothing to reduce numerical noise.",
+            "dependencies": [],
+            "details": "Create `src/analog_image_generator/geometry_helpers.py` with:\n\n1. `compute_local_curvature(centerline: NDArray, sigma: float = 3.0) -> NDArray`:\n   - Apply `scipy.ndimage.gaussian_filter1d` separately to x and y coordinates with σ=3-5\n   - Compute first derivatives (x', y') using `np.gradient()` for second-order accurate central differences\n   - Compute second derivatives (x'', y'') similarly\n   - Apply formula: κ = (x'*y'' - y'*x'') / (x'² + y'²)^(1.5)\n   - Handle edge cases: clamp denominator to avoid division by zero, return float32 array\n   - Return signed curvature (positive = left turn, negative = right turn)\n\n2. `measure_radius_of_curvature(centerline: NDArray, sigma: float = 3.0) -> tuple[NDArray, NDArray]`:\n   - Call compute_local_curvature() to get κ\n   - Find bend apexes as local maxima of |κ| using `scipy.signal.argrelmax`\n   - Compute R_c = 1/|κ| at apex points (with safeguard for κ≈0)\n   - Return (apex_indices, radius_values) tuple\n\nModule setup: Add docstring with anchor reference, import numpy/scipy, define `Array = NDArray[np.float32]`, add `__all__` exports.",
+            "status": "pending",
+            "testStrategy": "Unit tests in `tests/test_geometry_helpers.py`:\n1. **Circle test**: Generate points on circle of known radius R - verify κ ≈ 1/R everywhere (within 5% tolerance)\n2. **Straight line test**: Generate collinear points - verify κ ≈ 0 everywhere\n3. **Semicircle test**: Generate semicircle with R=50px - verify R_c ≈ 50 at apex\n4. **Sign test**: Generate S-curve - verify curvature changes sign at inflection point\n5. **Edge case**: Very short centerlines (n<5) should return zeros gracefully"
+          },
+          {
+            "id": 2,
+            "title": "Implement Circular Arc Generation and Arc Angle Calculation",
+            "description": "Create generate_circular_arc() for producing points along circular arcs and compute_arc_angle() for calculating arc angles from wavelength/radius relationships used in meander geometry.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add to `geometry_helpers.py`:\n\n1. `generate_circular_arc(center: tuple[float, float], radius: float, arc_angle: float, start_angle: float, n_points: int) -> NDArray`:\n   - Validate inputs: radius > 0, n_points >= 2, arc_angle in [-2π, 2π]\n   - Generate angles: `angles = np.linspace(start_angle, start_angle + arc_angle, n_points)`\n   - Compute coordinates: `x = center[0] + radius * np.cos(angles)`, `y = center[1] + radius * np.sin(angles)`\n   - Return shape (n_points, 2) float32 array with (x, y) columns\n\n2. `compute_arc_angle(wavelength: float, radius: float) -> float`:\n   - From meander geometry: arc_angle ≈ 2 * arcsin(wavelength / (4 * radius))\n   - Validate: wavelength > 0, radius > 0\n   - Clamp argument of arcsin to [-1, 1] to handle edge cases where wavelength > 4*radius\n   - Clamp result to [0, π] for physical validity\n   - Return float value in radians\n\nThese functions support the physics-based meander generation where channels follow circular arc segments between inflection points.",
+            "status": "pending",
+            "testStrategy": "Unit tests:\n1. **Full circle test**: arc_angle=2π should produce closed circle - verify first and last points match\n2. **Quarter arc test**: arc_angle=π/2, radius=10 - verify arc length ≈ πR/2 via cumulative distances\n3. **Equidistance test**: All generated points should be exactly `radius` distance from center\n4. **Arc angle geometry test**: For known λ=100, R=50, verify compute_arc_angle returns correct geometric value\n5. **Clamping test**: wavelength=500, radius=10 (invalid) should clamp to π without error"
+          },
+          {
+            "id": 3,
+            "title": "Implement Wavelength and Sinuosity Measurement Functions",
+            "description": "Create measure_wavelength() using curvature zero-crossing detection and measure_sinuosity() to calculate path length ratio, both essential metrics for validating physics-based meander geometry.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add to `geometry_helpers.py`:\n\n1. `measure_wavelength(centerline: NDArray, sigma: float = 3.0) -> float`:\n   - Call compute_local_curvature() to get signed curvature array\n   - Detect zero-crossings: find indices where sign(κ[i]) ≠ sign(κ[i+1])\n   - If fewer than 2 zero-crossings, return total path length as fallback\n   - Compute distances between consecutive zero-crossings using Euclidean distance\n   - Wavelength = 2× mean distance between same-sign extrema (equivalently, mean of full wavelength spans)\n   - Return float value in pixels\n\n2. `measure_sinuosity(centerline: NDArray) -> float`:\n   - Compute path_length: sum of Euclidean distances between consecutive points\n   - Compute straight_line_distance: Euclidean distance from first to last point\n   - Guard against division by zero (straight_line_distance ≈ 0 means effectively a closed loop)\n   - S = path_length / straight_line_distance\n   - Return float ≥ 1.0 (sinuosity of 1.0 = perfectly straight)\n\nNote: Signature uses `total_length` param in spec but it's not needed - sinuosity is purely geometric from the centerline itself.",
+            "status": "pending",
+            "testStrategy": "Unit tests:\n1. **Known sinusoid test**: Generate y = A*sin(2π*x/λ) with known λ=100px - verify measured wavelength within 10% of 100\n2. **Straight line sinuosity**: Collinear points should yield S ≈ 1.0\n3. **Semicircle sinuosity**: Half-circle of radius R - verify S ≈ π/2 ≈ 1.57\n4. **Multi-wavelength test**: Sinusoid with 3 complete periods - verify detected wavelength is consistent\n5. **Edge case**: Very short centerline (n<10) should return sensible defaults without crashing"
+          },
+          {
+            "id": 4,
+            "title": "Implement Neck Cutoff Detection Algorithm",
+            "description": "Create detect_neck_cutoff_candidates() to identify potential oxbow lake formation points where meander loops approach each other within channel-width distance, enabling physics-based cutoff simulation.",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "Add to `geometry_helpers.py`:\n\n`detect_neck_cutoff_candidates(centerline: NDArray, channel_width: float, search_range: tuple[float, float] = (3.0, 20.0)) -> list[tuple[int, int]]`:\n\n1. **Algorithm overview**: Find pairs of points (i, j) where the channel nearly intersects itself:\n   - The points are far apart along the centerline (j - i is large, meaning significant meander loop)\n   - The points are close in Euclidean space (potential neck cutoff)\n\n2. **Implementation**:\n   - Compute cumulative arc-length along centerline for distance-along-path calculations\n   - For efficiency, use spatial indexing: build KD-tree from centerline points\n   - For each point i, query points within channel_width Euclidean distance\n   - Filter candidates: keep pairs where arc_length[j] - arc_length[i] is in range [search_range[0] * channel_width, search_range[1] * channel_width]\n   - This ensures we find loops, not adjacent points\n\n3. **Output**: Return list of (idx1, idx2) tuples sorted by proximity (closest pairs first)\n\n4. **Edge cases**: Return empty list if no candidates found; handle self-intersection edge cases",
+            "status": "pending",
+            "testStrategy": "Unit tests:\n1. **Omega loop test**: Create Ω-shaped curve where ends nearly touch - verify detection finds the neck point pair\n2. **No cutoff test**: Gentle sinusoid with large wavelength - verify empty list returned\n3. **Multiple cutoffs test**: Figure-8 or highly sinuous curve - verify multiple candidate pairs detected\n4. **Search range test**: Verify candidates outside search_range are excluded (too close = adjacent, too far = not a loop)\n5. **Channel width sensitivity**: Same curve with different channel_width - verify appropriate filtering"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Rewrite Meander Centerline with Physics-Based Arc Geometry",
+        "description": "Replace the current sinusoidal `meander_centerline()` with `meander_centerline_physics()` that generates proper circular arc-based meander bends with wavelength λ = 10-14×W and radius of curvature R_c = 2-3×W.",
+        "details": "Replace `meander_centerline()` in `geologic_generators.py` with:\n\n```python\ndef meander_centerline_physics(\n    height: int,\n    width: int,\n    channel_width: float,\n    rng: np.random.Generator,\n    wavelength_factor: tuple[float, float] = (10.0, 14.0),\n    curvature_factor: tuple[float, float] = (2.0, 3.0),\n) -> Array:\n    \"\"\"Generate physics-based meander centerline (anchor-fluvial-meander-centerline-physics).\n    \n    Constraints from research:\n    - G1: λ = k × W where k ∈ [10, 14]\n    - G2: R_c = m × W where m ∈ [2, 3]\n    - G4: Sinuosity S ∈ [1.5, 3.0]\n    - G5: Bends are circular arcs, not sinusoids\n    \"\"\"\n    wavelength = rng.uniform(*wavelength_factor) * channel_width\n    base_radius = rng.uniform(*curvature_factor) * channel_width\n    \n    n_bends = int(width / (wavelength / 2))\n    centerline = []\n    current_pos = np.array([0.0, height / 2.0])\n    current_direction = 0.0  # radians, 0 = downstream (+x)\n    \n    for i in range(n_bends):\n        # Vary radius slightly per bend for naturalism\n        R = base_radius * rng.uniform(0.85, 1.15)\n        arc_angle = compute_arc_angle(wavelength, R)\n        sign = 1 if i % 2 == 0 else -1  # Alternate left/right\n        \n        # Generate circular arc points\n        arc_center = current_pos + sign * R * np.array([\n            -np.sin(current_direction),\n            np.cos(current_direction)\n        ])\n        arc_points = generate_circular_arc(\n            arc_center, R, arc_angle * sign,\n            current_direction - sign * np.pi/2,\n            n_points=max(10, int(arc_angle * R / 2))\n        )\n        centerline.extend(arc_points)\n        \n        # Update for next bend\n        current_pos = arc_points[-1]\n        current_direction += sign * arc_angle\n    \n    # Resample to width points and clip to bounds\n    centerline = np.array(centerline)\n    x_samples = np.arange(width)\n    y_interp = np.interp(x_samples, centerline[:, 0], centerline[:, 1])\n    y_interp = np.clip(y_interp, height * 0.1, height * 0.9)\n    \n    return y_interp.astype(np.float32)\n```\n\nUpdate `generate_meandering()` to call `meander_centerline_physics()` instead of `meander_centerline()`.\n\nAdd validation at generation time:\n```python\nmeasured_wavelength = measure_wavelength(centerline)\nmeasured_sinuosity = measure_sinuosity(centerline, width)\nassert 10 * channel_width <= measured_wavelength <= 14 * channel_width\nassert 1.5 <= measured_sinuosity <= 3.0\n```",
+        "testStrategy": "1. Generate 100 centerlines with different seeds and channel widths\n2. Verify measured wavelength is within 10-14× channel_width for >95% of samples\n3. Verify measured R_c at bend apexes is within 2-3× channel_width for >90% of bends\n4. Verify sinuosity is within [1.5, 3.0] for all samples\n5. Visual inspection: centerlines should show clear rounded bends, not pointed sinusoids\n6. Regression test: ensure API compatibility (same return type as before)",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement circular arc generation algorithm with downstream direction tracking",
+            "description": "Create the core arc-based centerline generation algorithm that replaces sinusoidal modulation with proper circular arc geometry, maintaining position and direction state across bends.",
+            "dependencies": [],
+            "details": "Implement `meander_centerline_physics()` function with the following components:\n\n1. **State tracking variables:**\n   - `current_pos`: numpy array [x, y] tracking downstream position\n   - `current_direction`: angle in radians (0 = downstream/+x)\n\n2. **Circular arc generation helper `generate_circular_arc()`:**\n   ```python\n   def generate_circular_arc(\n       arc_center: np.ndarray,\n       radius: float,\n       arc_angle: float,\n       start_angle: float,\n       n_points: int\n   ) -> list[np.ndarray]\n   ```\n   - Generate n_points along a circular arc\n   - Arc defined by center, radius, angular extent, and starting angle\n   - Return list of (x, y) coordinate pairs\n\n3. **Arc angle computation `compute_arc_angle()`:**\n   - Given wavelength λ and radius R, compute the arc angle θ that produces the required half-wavelength downstream displacement\n   - Geometric relationship: downstream_distance = 2*R*sin(θ/2) ≈ λ/2\n   - Therefore: θ ≈ 2*arcsin(λ/(4*R))\n\n4. **Main loop structure:**\n   - Calculate number of bends: `n_bends = int(width / (wavelength / 2))`\n   - For each bend:\n     - Compute arc center perpendicular to current direction\n     - Generate arc points alternating sign (+1/-1) for left/right bends\n     - Update current_pos and current_direction after each arc\n\n5. **Post-processing:**\n   - Resample irregular arc points to regular x-spacing using `np.interp()`\n   - Clip y-values to bounds (10%-90% of height) to avoid edge artifacts\n   - Return as float32 array matching existing API",
+            "status": "pending",
+            "testStrategy": "1. Unit test arc generation: verify arc points lie on a circle with correct radius\n2. Unit test arc angle computation: verify downstream displacement matches expected half-wavelength\n3. Test direction tracking: verify current_direction increments correctly through alternating bends\n4. Visual test: plot generated centerlines and verify they show smooth, connected circular arcs\n5. Compare to old sinusoidal output to confirm visual difference"
+          },
+          {
+            "id": 2,
+            "title": "Implement wavelength constraint enforcement (λ = 10-14×W)",
+            "description": "Add wavelength constraint sampling and validation to ensure generated centerlines have meander wavelength within the geologically-correct range of 10-14× channel width.",
+            "dependencies": [
+              1
+            ],
+            "details": "1. **Wavelength parameter handling:**\n   - Add `wavelength_factor: tuple[float, float] = (10.0, 14.0)` parameter\n   - Sample wavelength as: `wavelength = rng.uniform(*wavelength_factor) * channel_width`\n   - Store sampled factor in function for potential return as metadata\n\n2. **Wavelength measurement function `measure_wavelength()`:**\n   ```python\n   def measure_wavelength(centerline: Array) -> float:\n       \"\"\"Measure dominant wavelength from centerline via peak detection.\"\"\"\n       # Find local maxima and minima (bend apexes)\n       from scipy.signal import find_peaks\n       maxima, _ = find_peaks(centerline)\n       minima, _ = find_peaks(-centerline)\n       \n       # Wavelength = mean distance between same-side apexes\n       if len(maxima) >= 2:\n           return float(np.mean(np.diff(maxima)))\n       return float('inf')\n   ```\n\n3. **Validation at generation time:**\n   - After generating centerline, call `measure_wavelength()`\n   - Validate: `10 * channel_width <= measured_wavelength <= 14 * channel_width`\n   - If validation fails, either:\n     a) Log warning (soft constraint), or\n     b) Regenerate with adjusted parameters (strict mode)\n\n4. **Integration with function signature:**\n   ```python\n   def meander_centerline_physics(\n       height: int,\n       width: int,\n       channel_width: float,\n       rng: np.random.Generator,\n       wavelength_factor: tuple[float, float] = (10.0, 14.0),\n       ...\n   ) -> Array:\n   ```",
+            "status": "pending",
+            "testStrategy": "1. Generate 100 centerlines with varying seeds and channel widths (20-60px)\n2. Measure wavelength for each using `measure_wavelength()`\n3. Verify >95% have measured wavelength within 10-14× channel_width\n4. Test edge cases: very small channel_width (10px), very large (100px)\n5. Verify wavelength scales linearly with channel_width input"
+          },
+          {
+            "id": 3,
+            "title": "Implement radius of curvature constraint (R_c = 2-3×W)",
+            "description": "Add radius of curvature constraint sampling and per-bend variation to ensure bend tightness matches geologically-observed ranges of 2-3× channel width.",
+            "dependencies": [
+              1
+            ],
+            "details": "1. **Curvature parameter handling:**\n   - Add `curvature_factor: tuple[float, float] = (2.0, 3.0)` parameter\n   - Sample base radius: `base_radius = rng.uniform(*curvature_factor) * channel_width`\n\n2. **Per-bend radius variation for naturalism:**\n   - In main loop, vary radius per bend: `R = base_radius * rng.uniform(0.85, 1.15)`\n   - This creates visual variation while staying within geologic bounds\n   - Ensures effective R_c stays within ~1.7-3.45× W (still geologically valid)\n\n3. **Local curvature measurement function `compute_local_curvature()`:**\n   ```python\n   def compute_local_curvature(centerline: Array, window: int = 5) -> Array:\n       \"\"\"Compute curvature κ = 1/R at each point using second derivative.\"\"\"\n       # Smooth centerline first\n       from scipy.ndimage import gaussian_filter1d\n       y_smooth = gaussian_filter1d(centerline, sigma=window/2)\n       \n       # Curvature via second derivative: κ ≈ d²y/dx²\n       dy = np.gradient(y_smooth)\n       d2y = np.gradient(dy)\n       curvature = d2y / (1 + dy**2)**1.5\n       return curvature\n   ```\n\n4. **Radius measurement at bend apexes:**\n   ```python\n   def measure_radius_at_apexes(centerline: Array) -> list[float]:\n       \"\"\"Return R_c at each bend apex.\"\"\"\n       curvature = compute_local_curvature(centerline)\n       # Find apex locations (local extrema of centerline)\n       apexes = find_peaks(np.abs(centerline - centerline.mean()))[0]\n       radii = [1.0 / (abs(curvature[i]) + 1e-6) for i in apexes]\n       return radii\n   ```\n\n5. **Validation:**\n   - Check measured R_c values are within 2-3× channel_width for >90% of bends",
+            "status": "pending",
+            "testStrategy": "1. Generate centerlines with known channel_width values\n2. Compute curvature at each point using `compute_local_curvature()`\n3. At bend apexes, verify R_c = 1/|κ| falls within 2-3× channel_width\n4. Test with different curvature_factor inputs and verify output scales correctly\n5. Visual inspection: tight bends (R_c=2×W) vs gentle bends (R_c=3×W) should be visibly different"
+          },
+          {
+            "id": 4,
+            "title": "Add sinuosity validation (S ∈ [1.5, 3.0]) with measurement",
+            "description": "Implement sinuosity measurement function and add validation to ensure generated centerlines have sinuosity within the geologically-correct range for meandering rivers.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "1. **Sinuosity measurement function `measure_sinuosity()`:**\n   ```python\n   def measure_sinuosity(centerline: Array, image_width: int) -> float:\n       \"\"\"Compute sinuosity S = L_channel / L_valley.\n       \n       Args:\n           centerline: Y-coordinates at each x position\n           image_width: Width of image (straight-line distance)\n       \n       Returns:\n           Sinuosity ratio (1.0 = straight, higher = more sinuous)\n       \"\"\"\n       # Channel path length (sum of segment lengths)\n       dx = 1.0  # x-spacing is 1 pixel\n       dy = np.diff(centerline)\n       segment_lengths = np.sqrt(dx**2 + dy**2)\n       channel_length = np.sum(segment_lengths)\n       \n       # Valley length (straight line = image width)\n       valley_length = float(image_width)\n       \n       return channel_length / valley_length\n   ```\n\n2. **Sinuosity constraint enforcement:**\n   - After generating centerline, compute sinuosity\n   - If S < 1.5: bends are too gentle (increase arc angles or decrease radius)\n   - If S > 3.0: bends are too tight (decrease arc angles or increase radius)\n\n3. **Relationship between parameters and sinuosity:**\n   - Higher sinuosity requires: larger arc angles, smaller radii, more bends\n   - Lower sinuosity requires: smaller arc angles, larger radii, fewer bends\n   - Document this relationship for future parameter tuning\n\n4. **Validation with assertion (optional strict mode):**\n   ```python\n   measured_sinuosity = measure_sinuosity(centerline, width)\n   assert 1.5 <= measured_sinuosity <= 3.0, f\"Sinuosity {measured_sinuosity:.2f} out of range\"\n   ```\n\n5. **Return metadata (optional enhancement):**\n   - Consider returning dict with centerline + metrics:\n     `{'centerline': array, 'sinuosity': S, 'wavelength': λ, 'mean_radius': R}`",
+            "status": "pending",
+            "testStrategy": "1. Generate straight line (constant y): verify sinuosity ≈ 1.0\n2. Generate highly sinuous centerline: verify S > 1.5\n3. Test with 100 random seeds: verify all sinuosities in [1.5, 3.0]\n4. Verify sinuosity increases when wavelength_factor decreases (tighter bends)\n5. Verify sinuosity increases when curvature_factor decreases (smaller radii)\n6. Edge case: very short image width should still compute valid sinuosity"
+          },
+          {
+            "id": 5,
+            "title": "Integrate with generate_meandering() and add visual comparison tests",
+            "description": "Update generate_meandering() to call the new meander_centerline_physics() function, ensure API compatibility with downstream functions, and create visual comparison tests.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "1. **Update generate_meandering() call site (lines 102-109):**\n   ```python\n   # OLD:\n   centerline = meander_centerline(\n       height, width, int(params.get(\"n_control_points\", 6)),\n       amp_range, drift_frac, rng\n   )\n   \n   # NEW:\n   channel_width = (w_min + w_max) / 2.0  # Mean channel width for constraints\n   centerline = meander_centerline_physics(\n       height, width, channel_width, rng,\n       wavelength_factor=(10.0, 14.0),\n       curvature_factor=(2.0, 3.0)\n   )\n   ```\n\n2. **Ensure API compatibility:**\n   - Return type remains `Array` (1D float32 y-coordinates)\n   - Length must equal `width` (one y-value per x-pixel)\n   - Values must be within [0, height] bounds\n   - Compatible with `meander_variable_channel()` which expects this format\n\n3. **Preserve old function (temporarily) for comparison:**\n   - Rename `meander_centerline` → `meander_centerline_sinusoidal` \n   - Keep available for A/B testing and visual comparison\n   - Mark as deprecated with comment\n\n4. **Update GEOLOGIC_RULES anchor:**\n   - Change docstring anchor from `anchor-fluvial-meander-centerline` to `anchor-fluvial-meander-centerline-physics`\n   - Update corresponding entry in docs/GEOLOGIC_RULES.md\n\n5. **Visual comparison test script:**\n   ```python\n   def visual_comparison_test(seed=42, channel_width=30):\n       rng = np.random.default_rng(seed)\n       old = meander_centerline_sinusoidal(512, 512, 6, (0.1, 0.2), 0.08, rng)\n       rng = np.random.default_rng(seed)  # Reset\n       new = meander_centerline_physics(512, 512, channel_width, rng)\n       \n       fig, axes = plt.subplots(1, 2, figsize=(12, 4))\n       axes[0].plot(old); axes[0].set_title('Old (Sinusoidal)')\n       axes[1].plot(new); axes[1].set_title('New (Physics-based Arcs)')\n       plt.savefig('centerline_comparison.png')\n   ```\n\n6. **Integration tests:**\n   - Full pipeline test: `generate_meandering()` produces valid output\n   - Verify all downstream functions still work (variable_channel, levees, scroll_bars, oxbow)",
+            "status": "pending",
+            "testStrategy": "1. Run generate_meandering() with new centerline function - verify no exceptions\n2. Compare output masks shapes: should remain identical (height × width)\n3. Visual comparison: save side-by-side images of old vs new centerlines for 10 seeds\n4. Verify meander_variable_channel() works correctly with physics-based centerline\n5. Run existing smoke_test.py - all tests should pass\n6. Verify validate_geo_anchors.py passes with updated anchor names\n7. Performance test: ensure new function completes in reasonable time (<100ms for 512×512)"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Implement Point Bar Generation (New Feature)",
+        "description": "Create `add_point_bars()` function to generate point bar deposits exclusively on the inner bank of meander bends, using curvature-based detection. This is currently missing from the implementation entirely.",
+        "details": "Add new function to `geologic_generators.py`:\n\n```python\ndef add_point_bars(\n    centerline: Array,\n    channel_mask: Array,\n    channel_width: float,\n    rng: np.random.Generator,\n    extent_factor: tuple[float, float] = (1.5, 2.0),\n) -> Array:\n    \"\"\"Create point bar deposits on inner bank of bends (anchor-fluvial-point-bars).\n    \n    Constraints from research:\n    - P1: Point bars form ONLY on inner bank of meander bends\n    - P2: Extent = 1.5-2× channel width from inner bank\n    - Outer bank = cutbank (erosion, no deposition)\n    \"\"\"\n    height, width = channel_mask.shape\n    point_bar_mask = np.zeros((height, width), dtype=np.float32)\n    \n    # Compute curvature to identify bends and their direction\n    curvature = compute_local_curvature(centerline)\n    curvature_threshold = 0.01 / channel_width  # Minimum bend curvature\n    \n    for x in range(width):\n        if abs(curvature[x]) < curvature_threshold:\n            continue  # Straight section - no point bar\n        \n        # Inner side is OPPOSITE to curvature direction\n        # Positive curvature = bending up (y increasing) = inner bank is down\n        inner_side = -np.sign(curvature[x])\n        \n        # Point bar extent scales with curvature magnitude\n        curvature_normalized = min(1.0, abs(curvature[x]) * channel_width * 2)\n        bar_extent = rng.uniform(*extent_factor) * channel_width * (0.7 + 0.3 * curvature_normalized)\n        \n        y_center = centerline[x]\n        for y in range(height):\n            offset = (y - y_center) * inner_side\n            # Only deposit on inner side (offset > 0)\n            if 0 < offset < bar_extent:\n                # Intensity decreases away from channel\n                intensity = 1.0 - (offset / bar_extent) ** 0.5\n                # Modulate by curvature (stronger bars in tighter bends)\n                intensity *= curvature_normalized\n                point_bar_mask[y, x] = max(point_bar_mask[y, x], intensity)\n    \n    # Exclude channel itself\n    point_bar_mask = point_bar_mask * (channel_mask < 0.3)\n    return np.clip(point_bar_mask, 0.0, 1.0).astype(np.float32)\n```\n\nUpdate `generate_meandering()` to:\n1. Call `add_point_bars()` after channel generation\n2. Add 'pointbar' to masks dictionary\n3. Include point bars in grayscale composition\n4. Update `compose_meandering()` weights\n\nUpdate `PALETTES` in utils.py to ensure 'pointbar' facies has a distinct color (already exists: '#d98943').",
+        "testStrategy": "1. Generate meandering rivers with varying channel widths and seeds\n2. Verify point bar mask is non-zero ONLY where curvature is non-zero\n3. Verify point bar material is ONLY on inner bends (side opposite to curvature direction)\n4. Verify no point bar pixels overlap with channel mask\n5. Verify point bar extent is approximately 1.5-2× channel width\n6. Visual inspection: point bars should appear on inside of meander bends only",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement curvature-based inner bank detection",
+            "description": "Create the logic to compute local curvature of the meandering centerline and determine which side of the centerline is the inner bank (point bar side) versus outer bank (cutbank/erosion side) based on the sign of curvature.",
+            "dependencies": [],
+            "details": "This subtask implements the core geometric detection that determines WHERE point bars can form. Key implementation:\n\n1. Use `compute_local_curvature()` from Task 1's `geometry_helpers.py` module to compute signed curvature along the centerline.\n\n2. Apply a curvature threshold to distinguish bends from straight sections:\n   - `curvature_threshold = 0.01 / channel_width` (minimum bend curvature)\n   - Only generate point bars where `abs(curvature[x]) >= curvature_threshold`\n\n3. Determine inner bank side using curvature sign:\n   - `inner_side = -np.sign(curvature[x])`\n   - Positive curvature means bending upward (y increasing) → inner bank is DOWN\n   - Negative curvature means bending downward → inner bank is UP\n   - This is the fundamental physics: point bars form on the inner (convex) bank where flow velocity is lower and sediment deposits\n\n4. Store both the curvature array and inner_side indicators for use in subsequent subtasks.\n\nNote: This subtask depends on Task 1 being completed first to provide `compute_local_curvature()`. The function signature should match the one defined in Task 1's implementation details.",
+            "status": "pending",
+            "testStrategy": "1. Create test centerlines with known curvature (circular arcs, sinusoids)\n2. Verify curvature sign matches expected direction at each point\n3. Verify inner_side is correctly opposite to curvature direction\n4. Test threshold correctly filters out straight sections (curvature ≈ 0)\n5. Edge case: Test straight centerline returns no point bar regions"
+          },
+          {
+            "id": 2,
+            "title": "Calculate point bar extent with curvature-modulated intensity",
+            "description": "Implement the extent calculation that determines how far point bar deposits extend from the inner bank (1.5-2× channel width) and compute intensity that decreases away from the channel edge, modulated by local curvature magnitude.",
+            "dependencies": [
+              1
+            ],
+            "details": "This subtask computes the GEOMETRY and INTENSITY of point bar deposits at each location. Key implementation:\n\n1. For each column x where curvature exceeds threshold:\n   - Normalize curvature: `curvature_normalized = min(1.0, abs(curvature[x]) * channel_width * 2)`\n   - Calculate bar extent: `bar_extent = rng.uniform(1.5, 2.0) * channel_width * (0.7 + 0.3 * curvature_normalized)`\n   - Tighter bends (higher curvature) = larger point bars\n\n2. For each pixel (y, x) in the image:\n   - Calculate offset from centerline: `offset = (y - centerline[x]) * inner_side`\n   - Only consider inner side: `if 0 < offset < bar_extent`\n   - Compute intensity with distance decay: `intensity = 1.0 - (offset / bar_extent) ** 0.5`\n   - Modulate by curvature: `intensity *= curvature_normalized`\n\n3. Physics rationale:\n   - P2 constraint: Extent = 1.5-2× channel width from inner bank\n   - Square root decay mimics natural sediment fining patterns\n   - Curvature modulation creates larger/stronger bars in tighter bends\n\n4. Use vectorized numpy operations for efficiency (avoid pure Python loops if possible).",
+            "status": "pending",
+            "testStrategy": "1. Verify bar_extent is always within 1.5-2× channel_width range\n2. Verify intensity is 1.0 at channel edge and decreases toward bar_extent\n3. Verify higher curvature produces higher intensity values\n4. Verify no point bar pixels exist on outer bank (offset <= 0)\n5. Statistical test: measure average extent across multiple seeds"
+          },
+          {
+            "id": 3,
+            "title": "Generate point bar mask excluding channel overlap",
+            "description": "Assemble the complete `add_point_bars()` function that generates a float32 mask array, ensuring no point bar pixels overlap with the channel mask and applying proper clipping and type conversion.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "This subtask creates the complete `add_point_bars()` function in `geologic_generators.py`. Full function signature and implementation:\n\n```python\ndef add_point_bars(\n    centerline: Array,\n    channel_mask: Array,\n    channel_width: float,\n    rng: np.random.Generator,\n    extent_factor: tuple[float, float] = (1.5, 2.0),\n) -> Array:\n    \"\"\"Create point bar deposits on inner bank of bends (anchor-fluvial-point-bars).\n    \n    Constraints from research:\n    - P1: Point bars form ONLY on inner bank of meander bends\n    - P2: Extent = 1.5-2× channel width from inner bank\n    - Outer bank = cutbank (erosion, no deposition)\n    \"\"\"\n```\n\nKey implementation steps:\n\n1. Import `compute_local_curvature` from `geometry_helpers` module\n\n2. Initialize output: `point_bar_mask = np.zeros((height, width), dtype=np.float32)`\n\n3. Implement curvature detection and inner bank logic from subtask 1\n\n4. Implement extent calculation and intensity from subtask 2\n\n5. Critical: Exclude channel overlap:\n   - `point_bar_mask = point_bar_mask * (channel_mask < 0.3)`\n   - This ensures point bars are ADJACENT to but not overlapping the channel\n\n6. Final cleanup:\n   - `return np.clip(point_bar_mask, 0.0, 1.0).astype(np.float32)`\n\n7. Add docstring with anchor reference for GEOLOGIC_RULES traceability",
+            "status": "pending",
+            "testStrategy": "1. Verify output dtype is np.float32\n2. Verify output shape matches channel_mask shape\n3. Verify np.max(point_bar_mask * (channel_mask >= 0.3)) == 0 (no overlap)\n4. Verify point_bar_mask values are in [0.0, 1.0] range\n5. Visual inspection: point bars appear only on inner bends"
+          },
+          {
+            "id": 4,
+            "title": "Integrate point bars into generate_meandering() pipeline",
+            "description": "Update `generate_meandering()` to call `add_point_bars()`, add 'pointbar' to the masks dictionary, update the grayscale composition weights, and update `compose_meandering()` to include point bar contributions.",
+            "dependencies": [
+              3
+            ],
+            "details": "This subtask integrates the new point bar feature into the existing meandering pipeline. Modifications to `geologic_generators.py`:\n\n1. In `generate_meandering()` after line 120 (after `meander_variable_channel()`):\n   ```python\n   # Need channel_width for point bar extent calculation\n   channel_width_mean = (w_min + w_max) / 2.0\n   pointbar_mask = add_point_bars(\n       centerline,\n       channel_mask,\n       channel_width_mean,\n       rng,\n   )\n   ```\n\n2. Update masks dictionary (around line 131-137):\n   ```python\n   masks: Dict[str, Array] = {\n       \"channel\": channel_mask,\n       \"pointbar\": pointbar_mask,  # NEW\n       \"levee\": levee_mask,\n       \"scroll_bar\": scroll_mask,\n       \"oxbow\": oxbow_mask,\n       \"floodplain\": floodplain_mask,\n   }\n   ```\n\n3. Update grayscale composition (around line 139-145):\n   ```python\n   base_gray = (\n       channel_mask * 0.65\n       + pointbar_mask * 0.45  # NEW - lighter than channel\n       + levee_mask * 0.2\n       + scroll_mask * 0.1\n       + oxbow_mask * 0.15\n       + floodplain_mask * 0.35\n   )\n   ```\n\n4. Verify PALETTES already has 'pointbar' entry (line 42 in utils.py: `{\"facies\": \"pointbar\", \"color\": \"#d98943\"}`) - no changes needed\n\n5. The existing `compose_meandering()` function normalizes all masks automatically, so no changes needed there\n\n6. Add import for geometry_helpers at top of file:\n   ```python\n   from .geometry_helpers import compute_local_curvature\n   ```",
+            "status": "pending",
+            "testStrategy": "1. Run generate_meandering() with default params and verify 'pointbar' key exists in masks dict\n2. Verify pointbar_mask.sum() > 0 for meandering channels with bends\n3. Visual test: render with palette and verify point bars appear orange (#d98943)\n4. Verify grayscale output shows point bars as distinct lighter features\n5. Run with multiple seeds (1-10) and verify consistent point bar generation\n6. Integration test: full pipeline through compose_meandering() and apply_sedimentary_overlays()"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Rewrite Scroll Bars for Point Bar Regions Only",
+        "description": "Replace the current `add_scroll_bars()` with `add_scroll_bars_physics()` that confines scroll bar patterns exclusively to point bar regions with arcuate patterns following bend curvature.",
+        "details": "Replace `add_scroll_bars()` in `geologic_generators.py`:\n\n```python\ndef add_scroll_bars_physics(\n    centerline: Array,\n    point_bar_mask: Array,\n    channel_width: float,\n    rng: np.random.Generator,\n    spacing_factor: tuple[float, float] = (0.05, 0.15),\n) -> Array:\n    \"\"\"Create scroll bar ridges within point bars (anchor-fluvial-scroll-bars-physics).\n    \n    Constraints from research:\n    - P3: Scroll bars are arcuate ridges marking successive point bar growth\n    - Concentric arcs following bend shape\n    - Confined ONLY to point bar regions\n    \"\"\"\n    height, width = point_bar_mask.shape\n    scroll_mask = np.zeros((height, width), dtype=np.float32)\n    \n    # Only process where point bars exist\n    if point_bar_mask.max() < 0.1:\n        return scroll_mask\n    \n    curvature = compute_local_curvature(centerline)\n    \n    # Scroll spacing scales with channel width\n    scroll_spacing = rng.uniform(*spacing_factor) * channel_width\n    \n    # Distance from channel edge (within point bar)\n    from . import utils\n    channel_edge = point_bar_mask > 0.5\n    dist_from_edge = utils.distance_to_mask(channel_edge)\n    \n    # Create arcuate bands that follow curvature\n    # The key insight: scroll bars are PARALLEL to the channel, not concentric circles\n    for x in range(width):\n        if point_bar_mask[:, x].max() < 0.1:\n            continue\n        \n        # Phase offset based on local curvature creates arcuate pattern\n        curvature_phase = np.cumsum(np.abs(curvature[:x+1])) if x > 0 else 0\n        phase_offset = curvature_phase * scroll_spacing * 0.1\n        \n        for y in range(height):\n            if point_bar_mask[y, x] < 0.1:\n                continue\n            \n            dist = dist_from_edge[y, x]\n            scroll_phase = ((dist + phase_offset) / scroll_spacing) % 1.0\n            scroll_intensity = 0.5 * (np.cos(2 * np.pi * scroll_phase) + 1.0)\n            \n            # Modulate by point bar intensity\n            scroll_mask[y, x] = scroll_intensity * point_bar_mask[y, x]\n    \n    return np.clip(scroll_mask, 0.0, 1.0).astype(np.float32)\n```\n\nKey changes from original:\n1. Takes `point_bar_mask` as input instead of `channel_mask`\n2. Scroll bars ONLY appear within point bar regions\n3. Pattern follows curvature for arcuate appearance\n4. No scroll bars on outer bends or floodplain\n\nUpdate `generate_meandering()` to pass point_bar_mask to this function.",
+        "testStrategy": "1. Verify scroll_mask is zero everywhere point_bar_mask is zero\n2. Verify scroll pattern intensity modulated by point bar mask\n3. Generate images with different curvatures and verify scroll pattern follows bend shape\n4. Visual inspection: scroll bars should appear as arcuate ridges within point bars only\n5. Regression test: ensure scroll_bar key still present in masks dictionary",
+        "priority": "high",
+        "dependencies": [
+          1,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Modify add_scroll_bars to accept point_bar_mask input",
+            "description": "Refactor the add_scroll_bars() function signature to add_scroll_bars_physics() that takes point_bar_mask and centerline as inputs instead of channel_mask, enabling scroll bar generation only within point bar regions.",
+            "dependencies": [],
+            "details": "Create the new function `add_scroll_bars_physics(centerline, point_bar_mask, channel_width, rng, spacing_factor)` in geologic_generators.py. The function should:\n1. Accept centerline (Array), point_bar_mask (Array), channel_width (float), rng (Generator), and spacing_factor tuple\n2. Initialize scroll_mask as zeros with point_bar_mask.shape\n3. Early return zeros if point_bar_mask.max() < 0.1 (no point bars present)\n4. Calculate distance from channel edge using `utils.distance_to_mask(point_bar_mask > 0.5)`\n5. Update the call site in generate_meandering() to pass the point_bar_mask (from Task 3) instead of channel_mask\n6. Add anchor comment: `anchor-fluvial-scroll-bars-physics`\n7. Keep old add_scroll_bars() temporarily for backward compatibility until migration complete",
+            "status": "pending",
+            "testStrategy": "1. Unit test: Verify function accepts new parameters without error\n2. Unit test: Verify return shape matches point_bar_mask shape\n3. Unit test: Verify early return when point_bar_mask is all zeros\n4. Integration test: Verify generate_meandering() calls new function correctly with point_bar_mask"
+          },
+          {
+            "id": 2,
+            "title": "Implement arcuate curvature-following pattern generation",
+            "description": "Add curvature computation and phase offset logic to create scroll bar patterns that follow meander bend curvature, producing geologically realistic arcuate ridges rather than simple concentric distance bands.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement the curvature-based arcuate pattern within add_scroll_bars_physics():\n1. Add `compute_local_curvature(centerline)` helper function that calculates local curvature along the centerline using second derivative approximation: `curvature[i] = (y[i+1] - 2*y[i] + y[i-1])` for finite differences\n2. Calculate scroll_spacing as `rng.uniform(*spacing_factor) * channel_width`\n3. For each column x where point_bar_mask has values:\n   - Compute cumulative curvature phase: `curvature_phase = np.cumsum(np.abs(curvature[:x+1]))`\n   - Calculate phase_offset = curvature_phase * scroll_spacing * 0.1\n4. For each pixel (y, x) within point_bar_mask:\n   - Get distance from channel edge\n   - Compute scroll_phase = ((dist + phase_offset) / scroll_spacing) % 1.0\n   - Calculate scroll_intensity = 0.5 * (np.cos(2π * scroll_phase) + 1.0)\n5. The phase offset creates the characteristic arcuate pattern where scroll ridges curve with the bend geometry",
+            "status": "pending",
+            "testStrategy": "1. Visual inspection: Generate scroll patterns on synthetic point bar masks with known curvature and verify arcuate appearance\n2. Unit test: Verify compute_local_curvature returns expected values for simple sine wave input\n3. Unit test: Verify scroll_spacing falls within spacing_factor bounds\n4. Statistical test: Verify phase varies along the channel direction (x-axis) due to curvature accumulation\n5. Compare output to reference images showing proper scroll bar arcuate geometry"
+          },
+          {
+            "id": 3,
+            "title": "Apply point bar intensity modulation and update compose_meandering weights",
+            "description": "Ensure scroll bar intensity is properly modulated by point_bar_mask values and update compose_meandering() grayscale weights to properly blend the physics-based scroll bars with other facies.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Complete the scroll bar masking and composition integration:\n1. In add_scroll_bars_physics(), multiply final scroll_intensity by point_bar_mask[y, x] to ensure:\n   - Scroll bars are zero where point_bar_mask is zero (enforces confinement)\n   - Scroll intensity tapers with point bar probability values (smooth edges)\n2. Apply final clipping: `return np.clip(scroll_mask, 0.0, 1.0).astype(np.float32)`\n3. Update generate_meandering() to pass point_bar_mask to add_scroll_bars_physics()\n4. Review compose_meandering() weights (currently scroll_bar * 0.1) - may need adjustment since scroll bars are now confined to smaller region\n5. Verify the 'scroll_bar' key in masks dict is populated correctly\n6. Add pointbar to fluvial palette in utils.py if not present (check PALETTES dict)\n7. Ensure backward compatibility: if point_bar_mask unavailable, fall back gracefully",
+            "status": "pending",
+            "testStrategy": "1. Unit test: Verify scroll_mask is exactly zero everywhere point_bar_mask is zero\n2. Unit test: Verify scroll intensity values are bounded [0, 1]\n3. Visual test: Generate full meandering images and verify scroll bars only appear within visible point bar regions\n4. Statistical test: Correlation between scroll_mask > 0 and point_bar_mask > 0 should be 1.0 (perfect confinement)\n5. Integration test: Run generate_meandering() with various seeds and verify no scroll bars appear on outer bends or floodplain\n6. Composition test: Verify grayscale output shows appropriate scroll bar contribution in point bar areas"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Rewrite Oxbow Generation with Neck Cutoff Criterion",
+        "description": "Replace `add_oxbow()` with `add_oxbow_physics()` that uses deterministic neck cutoff detection (neck_distance < channel_width) and preserves meander loop shapes instead of random circles.",
+        "details": "Replace `add_oxbow()` in `geologic_generators.py`:\n\n```python\ndef add_oxbow_physics(\n    centerline: Array,\n    shape: tuple[int, int],\n    channel_width: float,\n    rng: np.random.Generator,\n    fill_width_factor: tuple[float, float] = (0.3, 0.5),\n) -> tuple[Array, Array]:\n    \"\"\"Create oxbow lakes at neck cutoff locations (anchor-fluvial-oxbow-physics).\n    \n    Constraints from research:\n    - O1: Neck cutoff when neck_distance < channel_width (DETERMINISTIC)\n    - O2: Oxbow shape = abandoned meander loop (NOT circles)\n    - O3: Location determined by geometry meeting cutoff criterion\n    \"\"\"\n    height, width = shape\n    oxbow_mask = np.zeros((height, width), dtype=np.float32)\n    cutoff_centerline = centerline.copy()\n    \n    # Find all potential neck cutoffs\n    cutoff_candidates = detect_neck_cutoff_candidates(\n        centerline, \n        channel_width,\n        search_range=(int(3 * channel_width), int(20 * channel_width))\n    )\n    \n    processed_regions = []  # Track to avoid overlapping cutoffs\n    \n    for x1, x2 in cutoff_candidates:\n        # Skip if overlaps with already processed cutoff\n        if any(x1 < end and x2 > start for start, end in processed_regions):\n            continue\n        \n        y1, y2 = centerline[x1], centerline[x2]\n        neck_distance = abs(y1 - y2)\n        \n        # O1: DETERMINISTIC cutoff criterion\n        if neck_distance >= channel_width:\n            continue\n        \n        # Create oxbow from abandoned meander loop shape\n        # Trace the original centerline from x1 to x2\n        oxbow_fill_width = channel_width * rng.uniform(*fill_width_factor)\n        \n        for x in range(x1, x2):\n            y_center = centerline[x]\n            half_width = oxbow_fill_width\n            y_min = int(max(0, y_center - half_width))\n            y_max = int(min(height, y_center + half_width))\n            \n            # Gradual fill-in effect (oxbows silt up from ends)\n            dist_from_ends = min(x - x1, x2 - x) / max(1, (x2 - x1) / 2)\n            fill_intensity = 0.3 + 0.7 * min(1.0, dist_from_ends)\n            \n            oxbow_mask[y_min:y_max, x] = np.maximum(\n                oxbow_mask[y_min:y_max, x],\n                fill_intensity\n            )\n        \n        # Update centerline to take cutoff path (straight line from x1 to x2)\n        cutoff_centerline[x1:x2] = np.linspace(y1, y2, x2 - x1)\n        processed_regions.append((x1, x2))\n    \n    return oxbow_mask.astype(np.float32), cutoff_centerline\n```\n\nKey changes from original:\n1. Uses `detect_neck_cutoff_candidates()` for deterministic detection\n2. Cutoff criterion is `neck_distance < channel_width` (not random probability)\n3. Oxbow shape traces the abandoned meander loop\n4. Returns both oxbow mask AND updated centerline (for subsequent generation)\n5. Includes silting-up effect (fill intensity varies)\n\nUpdate `generate_meandering()` to:\n1. Call `add_oxbow_physics()` after centerline generation\n2. Use returned `cutoff_centerline` for active channel generation\n3. Original centerline sections become oxbows",
+        "testStrategy": "1. Generate centerlines with deliberate tight bends (neck_distance < channel_width)\n2. Verify oxbows appear ONLY at locations meeting cutoff criterion\n3. Verify oxbow shapes follow the original meander loop (not circles)\n4. Verify returned cutoff_centerline takes the shorter path\n5. Verify no oxbows appear where neck_distance >= channel_width\n6. Visual inspection: oxbows should be crescent/arc shapes matching abandoned bends",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement neck cutoff candidate detection function",
+            "description": "Create the `detect_neck_cutoff_candidates()` helper function that scans the centerline to find all potential neck cutoff locations where meander bends approach each other within the specified search range.",
+            "dependencies": [],
+            "details": "Implement `detect_neck_cutoff_candidates(centerline, channel_width, search_range)` in `geologic_generators.py` that:\n1. Iterates along the centerline looking for pairs of indices (x1, x2) where the channel loops back\n2. Uses `search_range=(int(3 * channel_width), int(20 * channel_width))` to define min/max separation between candidate points\n3. For each candidate pair, checks if the y-distance between points is less than channel_width (neck proximity)\n4. Returns a list of tuples `[(x1, x2), ...]` representing potential cutoff start/end positions\n5. Ensures candidates are sorted by x1 to facilitate downstream overlap detection\n\nThis function depends on Task 1's curvature utilities but can use simple geometric distance calculation as fallback. The key algorithm: for each point x1, search forward in range [x1+min_sep, x1+max_sep] for points x2 where |centerline[x1] - centerline[x2]| forms a neck.",
+            "status": "pending",
+            "testStrategy": "1. Create synthetic centerlines with known tight bends (e.g., sinusoid with high amplitude) and verify candidates are detected at expected locations\n2. Test with straight centerline - should return empty list\n3. Test search_range parameter validation - min < max, both positive\n4. Verify no duplicate or overlapping candidates in output"
+          },
+          {
+            "id": 2,
+            "title": "Implement deterministic cutoff criterion with overlap handling",
+            "description": "Build the core cutoff decision logic that applies the deterministic criterion `neck_distance < channel_width` and handles overlapping cutoff regions to avoid conflicting oxbows.",
+            "dependencies": [
+              1
+            ],
+            "details": "Within `add_oxbow_physics()`, implement the cutoff decision loop:\n1. Call `detect_neck_cutoff_candidates()` to get candidate pairs\n2. Track `processed_regions = []` to store (start, end) of already-processed cutoffs\n3. For each (x1, x2) candidate:\n   - Check overlap: `if any(x1 < end and x2 > start for start, end in processed_regions): continue`\n   - Calculate `neck_distance = abs(centerline[x1] - centerline[x2])`\n   - Apply O1 constraint: `if neck_distance >= channel_width: continue` (DETERMINISTIC - no random probability)\n   - If criterion met, mark region for oxbow generation and add to processed_regions\n4. This replaces the random `rng.random() > probability` check from the original implementation\n\nKey change from original: No probability parameter - cutoff is purely geometry-driven. The `fill_width_factor` parameter controls oxbow width relative to channel_width.",
+            "status": "pending",
+            "testStrategy": "1. Test with centerline having neck_distance = 0.5×channel_width (should trigger cutoff)\n2. Test with neck_distance = 1.5×channel_width (should NOT trigger cutoff)\n3. Test overlapping candidates - verify only non-overlapping regions are processed\n4. Verify no random number generator affects cutoff decision (determinism check)"
+          },
+          {
+            "id": 3,
+            "title": "Generate oxbow shape from abandoned meander loop with silting effect",
+            "description": "Replace circular oxbow shapes with meander-loop-tracing logic that creates realistic oxbow lakes following the original centerline path, including gradual silting-up intensity variation from ends to center.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "After a cutoff is determined, generate the oxbow mask by tracing the abandoned meander loop:\n1. For each cutoff region (x1, x2):\n   - `oxbow_fill_width = channel_width * rng.uniform(*fill_width_factor)` where fill_width_factor defaults to (0.3, 0.5)\n   - Loop through `x in range(x1, x2)`:\n     - Get `y_center = centerline[x]` (original meander path)\n     - Calculate vertical extent: `y_min = int(max(0, y_center - oxbow_fill_width))`, `y_max = int(min(height, y_center + oxbow_fill_width))`\n   - Apply silting-up effect (O3): `dist_from_ends = min(x - x1, x2 - x) / max(1, (x2 - x1) / 2)`\n   - `fill_intensity = 0.3 + 0.7 * min(1.0, dist_from_ends)` - ends are more silted (lower intensity), center is more open water (higher)\n   - Set `oxbow_mask[y_min:y_max, x] = np.maximum(oxbow_mask[y_min:y_max, x], fill_intensity)`\n2. This creates crescent-shaped oxbows that follow the meander geometry instead of random circles",
+            "status": "pending",
+            "testStrategy": "1. Visual inspection: oxbow shapes should be crescent/horseshoe-like, not circular\n2. Verify fill_intensity varies from ~0.3 at ends to 1.0 at center\n3. Test with different fill_width_factor values - oxbow width should scale proportionally\n4. Verify oxbow mask only covers the abandoned loop region (x1 to x2)"
+          },
+          {
+            "id": 4,
+            "title": "Return updated centerline and integrate with generate_meandering()",
+            "description": "Modify `add_oxbow_physics()` to return both the oxbow mask AND the updated (cutoff) centerline, then update `generate_meandering()` to use this new API while maintaining backward compatibility.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "1. Complete `add_oxbow_physics()` signature: `-> tuple[Array, Array]` returning (oxbow_mask, cutoff_centerline)\n2. After processing each cutoff:\n   - Update centerline to take shorter path: `cutoff_centerline[x1:x2] = np.linspace(y1, y2, x2 - x1)`\n   - This creates the new active channel path\n3. Update `generate_meandering()` (lines 95-153):\n   - Replace `oxbow_mask = add_oxbow(...)` with `oxbow_mask, active_centerline = add_oxbow_physics(centerline, (height, width), mean_channel_width, rng)`\n   - Use `active_centerline` for channel mask generation: `channel_mask = meander_variable_channel(active_centerline, ...)`\n   - Original `centerline` sections become oxbows\n4. Keep `add_oxbow()` as deprecated wrapper for backward compatibility:\n   ```python\n   def add_oxbow(centerline, shape, neck_tol, rng=None):\n       \"\"\"DEPRECATED: Use add_oxbow_physics() instead.\"\"\"\n       # Call physics version, discard centerline\n       oxbow_mask, _ = add_oxbow_physics(centerline, shape, neck_tol * 50, rng)  # rough width estimate\n       return oxbow_mask\n   ```\n5. Update docstrings with anchor: `anchor-fluvial-oxbow-physics`",
+            "status": "pending",
+            "testStrategy": "1. Verify add_oxbow_physics() returns tuple of two arrays with correct shapes\n2. Test that active_centerline takes shorter path (straight line) at cutoff locations\n3. Verify generate_meandering() produces valid output with new integration\n4. Test backward compatibility: old add_oxbow() signature still works\n5. End-to-end: generate meandering with various seeds, verify oxbows appear at tight bends only"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Implement Exponential Levee Decay Profile",
+        "description": "Replace `add_levees()` with `add_levees_exponential()` that uses the physics formula h(x) = h₀ × exp(-x/L_d) with decay length 5-15× channel width and extent limited to 3-5× channel width.",
+        "details": "Replace `add_levees()` in `geologic_generators.py`:\n\n```python\ndef add_levees_exponential(\n    channel_mask: Array,\n    channel_width: float,\n    rng: np.random.Generator,\n    h0: float = 1.0,\n    decay_factor: tuple[float, float] = (5.0, 15.0),\n    extent_factor: tuple[float, float] = (3.0, 5.0),\n) -> Array:\n    \"\"\"Create levees with exponential decay profile (anchor-fluvial-levees-exponential).\n    \n    Constraints from research:\n    - L1: h_levee(x) = h0 × exp(-x / L_d)\n    - L1: L_d = 5-15× channel width for meandering\n    - L2: Extent limited to 3-5× channel width\n    \"\"\"\n    from . import utils\n    \n    # Sample decay length and max extent\n    decay_length = rng.uniform(*decay_factor) * channel_width\n    max_extent = rng.uniform(*extent_factor) * channel_width\n    \n    # Distance from channel edge\n    dist = utils.distance_to_mask(channel_mask >= 0.5)\n    \n    # L1: Exponential decay formula\n    levee = h0 * np.exp(-dist / decay_length)\n    \n    # Levees are ADJACENT to channel, not inside it\n    levee = levee * (channel_mask < 0.3)\n    \n    # L2: Limit extent\n    levee = levee * (dist < max_extent)\n    \n    # Smooth transition at edges\n    edge_transition = np.clip((max_extent - dist) / (0.1 * max_extent), 0, 1)\n    levee = levee * edge_transition\n    \n    return np.clip(levee, 0.0, 1.0).astype(np.float32)\n```\n\nKey changes from original:\n1. Uses exponential decay instead of Gaussian blur\n2. Decay length scales with channel width (5-15×)\n3. Extent limited to 3-5× channel width\n4. Formula matches research: h(x) = h₀ × exp(-x/L_d)\n5. Takes channel_width as parameter for proper scaling\n\nUpdate `generate_meandering()` to pass channel_width to levee function.\n\nNote: `add_levees_narrow()` for anastomosing already uses exponential decay correctly.",
+        "testStrategy": "1. Generate levee profiles and measure actual decay rate\n2. Verify decay follows exponential curve (plot log(h) vs distance should be linear)\n3. Verify decay length is within 5-15× channel_width\n4. Verify no levee pixels beyond 5× channel_width from channel\n5. Verify levee mask is zero inside channel (channel_mask > 0.5)\n6. Compare visual output with original - should be smoother, more realistic gradient",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Replace Gaussian blur with exponential decay formula h(x) = h₀ × exp(-x/L_d)",
+            "description": "Create `add_levees_exponential()` function that replaces the dilation/gaussian approach with the physics-based exponential decay formula, using decay length L_d = 5-15× channel_width.",
+            "dependencies": [],
+            "details": "Create new `add_levees_exponential()` function in `geologic_generators.py` (around line 297-304 where current `add_levees()` exists):\n\n1. Function signature: `add_levees_exponential(channel_mask, channel_width, rng, h0=1.0, decay_factor=(5.0, 15.0))`\n2. Sample decay length: `decay_length = rng.uniform(*decay_factor) * channel_width`\n3. Compute distance from channel edge using `utils.distance_to_mask(channel_mask >= 0.5)`\n4. Apply exponential decay: `levee = h0 * np.exp(-dist / decay_length)`\n5. Preserve 'levees adjacent to channel' masking: `levee = levee * (channel_mask < 0.3)` (from existing `add_levees_narrow()` pattern at line 559)\n\nReference the existing `add_levees_narrow()` at lines 551-560 which already uses `np.exp(-dist / width_px)` as the template. The key change is using randomized decay_factor (5-15×) scaled by channel_width instead of fixed width_px.",
+            "status": "pending",
+            "testStrategy": "1. Generate levee profiles and plot log(h) vs distance - should be linear (exponential decay verification)\n2. Measure decay length from generated profiles, verify it falls within 5-15× channel_width range\n3. Visual comparison: old Gaussian vs new exponential - exponential should show faster initial decay and longer tail\n4. Verify levee mask is zero inside channel (channel_mask >= 0.5 areas)"
+          },
+          {
+            "id": 2,
+            "title": "Add extent limiting to 3-5× channel_width with smooth edge transition",
+            "description": "Extend `add_levees_exponential()` to limit levee extent to 3-5× channel_width and apply smooth edge transition to avoid hard cutoffs at the boundary.",
+            "dependencies": [
+              1
+            ],
+            "details": "Extend the function created in subtask 1 with extent limiting:\n\n1. Add `extent_factor=(3.0, 5.0)` parameter to function signature\n2. Sample max extent: `max_extent = rng.uniform(*extent_factor) * channel_width`\n3. Apply hard extent limit: `levee = levee * (dist < max_extent)`\n4. Add smooth edge transition to avoid visible artifacts: `edge_transition = np.clip((max_extent - dist) / (0.1 * max_extent), 0, 1)` and `levee = levee * edge_transition`\n5. Final clip and cast: `return np.clip(levee, 0.0, 1.0).astype(np.float32)`\n6. Update `generate_meandering()` to call `add_levees_exponential()` with channel_width parameter instead of `add_levees()`\n7. Add anchor comment: `anchor-fluvial-levees-exponential` in docstring\n\nThe smooth transition prevents visual banding where levees abruptly end.",
+            "status": "pending",
+            "testStrategy": "1. Generate images and verify no levee pixels exist beyond 5× channel_width from channel edge\n2. Verify extent falls within 3-5× channel_width for multiple seeds\n3. Visual inspection: no hard edges/banding at levee boundaries (smooth falloff)\n4. Integration test: `generate_meandering()` produces valid output with new levee function\n5. Regression test: compare overall image quality before/after change"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Implement Curvature-Driven Channel Width Variation",
+        "description": "Replace `meander_variable_channel()` with `meander_variable_channel_curvature()` that makes channels wider in bends and narrower in straights with 15-30% variation.",
+        "details": "Replace `meander_variable_channel()` in `geologic_generators.py`:\n\n```python\ndef meander_variable_channel_curvature(\n    centerline: Array,\n    shape: tuple[int, int],\n    base_width: float,\n    rng: np.random.Generator,\n    variation_range: tuple[float, float] = (0.15, 0.30),\n) -> Array:\n    \"\"\"Create channel mask with curvature-driven width variation (anchor-fluvial-variable-width-curvature).\n    \n    Constraints from research:\n    - C1: Channel WIDER in bends, NARROWER in straights\n    - C1: Width variation ±15-30% of mean width\n    \"\"\"\n    height, width = shape\n    \n    # Compute curvature magnitude\n    curvature = compute_local_curvature(centerline)\n    curvature_magnitude = np.abs(curvature)\n    \n    # Normalize curvature to [0, 1]\n    max_curvature = curvature_magnitude.max() + 1e-6\n    curvature_normalized = curvature_magnitude / max_curvature\n    \n    # Sample variation scale within allowed range\n    variation_scale = rng.uniform(*variation_range)\n    \n    # Width INCREASES with curvature magnitude\n    # In bends (high curvature): wider channel\n    # In straights (low curvature): narrower channel\n    width_variation = variation_scale * base_width * curvature_normalized\n    \n    # Base width is the MINIMUM (at straights)\n    # Add variation in bends\n    width_profile = base_width + width_variation\n    \n    # Add small random perturbation for naturalism\n    noise = rng.normal(0.0, base_width * 0.03, size=width)\n    width_profile = np.clip(width_profile + noise, base_width * 0.8, base_width * 1.5)\n    \n    # Create mask\n    rows = np.arange(height, dtype=np.float32)[:, None]\n    center = centerline[None, :]\n    half_width = (width_profile / 2.0).astype(np.float32)[None, :]\n    \n    # Smooth distance-based mask for anti-aliasing\n    distance = np.abs(rows - center)\n    mask = np.clip(1.0 - (distance - half_width) / 2.0, 0.0, 1.0)\n    mask = (distance <= half_width).astype(np.float32) + mask * (distance > half_width) * (distance < half_width + 2)\n    \n    return np.clip(mask, 0.0, 1.0).astype(np.float32)\n```\n\nKey changes from original:\n1. Width is driven by LOCAL CURVATURE, not arbitrary interpolation\n2. Channel is wider where curvature is higher (bends)\n3. Channel is narrower where curvature is lower (straights)\n4. Variation constrained to 15-30% of mean width\n5. Uses computed curvature from helper functions\n\nUpdate `generate_meandering()` to call this function.",
+        "testStrategy": "1. Generate channels with varying curvature profiles\n2. Measure width at high-curvature points vs low-curvature points\n3. Verify bends are wider than straights\n4. Verify variation is within 15-30% of mean width\n5. Statistical test: correlation between curvature and width should be positive\n6. Visual inspection: channel should visibly widen in bends",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Compute Local Curvature and Normalize to [0, 1] Range",
+            "description": "Implement curvature computation from centerline coordinates using second derivative analysis, then normalize the curvature magnitude to a [0, 1] range for use in width modulation.",
+            "dependencies": [],
+            "details": "Create `compute_local_curvature()` helper function or integrate curvature computation directly within `meander_variable_channel_curvature()`. The curvature κ at each point along the centerline can be computed using the formula κ = |y''| / (1 + y'^2)^(3/2), where y' and y'' are the first and second derivatives of the centerline. Use numpy gradient functions (`np.gradient`) to compute derivatives numerically. Normalize curvature by dividing by the maximum curvature value (plus small epsilon to avoid division by zero): `curvature_normalized = curvature_magnitude / (max_curvature + 1e-6)`. This ensures straight sections (low curvature) map to ~0 and tight bends (high curvature) map to ~1. Note: This subtask depends on Tasks 1 and 2 providing the curvature computation infrastructure; if those aren't implemented yet, include the curvature calculation inline.",
+            "status": "pending",
+            "testStrategy": "Test with synthetic centerlines of known geometry (straight line should yield ~0 curvature everywhere, circular arc should yield constant curvature). Verify normalized values are in [0, 1] range. Test edge cases: perfectly straight centerline, highly sinuous centerline, centerlines at image boundaries."
+          },
+          {
+            "id": 2,
+            "title": "Calculate Width Profile with Curvature-Driven ±15-30% Variation",
+            "description": "Compute a variable width profile where channel width increases proportionally with curvature magnitude, constrained to ±15-30% variation from the base width.",
+            "dependencies": [
+              1
+            ],
+            "details": "Given the normalized curvature array from subtask 1, calculate the width profile as: `variation_scale = rng.uniform(0.15, 0.30)` to sample within the allowed range, then `width_variation = variation_scale * base_width * curvature_normalized`. The final width is `width_profile = base_width + width_variation`, which means base_width is the minimum (at straights) and bends get wider. Add small random noise for naturalism: `noise = rng.normal(0.0, base_width * 0.03, size=width)`. Clamp final profile: `width_profile = np.clip(width_profile + noise, base_width * 0.8, base_width * 1.5)` to prevent extreme values while allowing the full variation range. The key physics constraint is that width INCREASES with curvature (bends wider than straights).",
+            "status": "pending",
+            "testStrategy": "Generate width profiles and verify: (1) mean width is close to base_width, (2) maximum width occurs at maximum curvature points, (3) minimum width occurs at minimum curvature points, (4) total variation stays within 15-30% of mean. Compute correlation coefficient between curvature and width - should be strongly positive (r > 0.7)."
+          },
+          {
+            "id": 3,
+            "title": "Create Anti-Aliased Channel Mask with Smooth Distance-Based Edges",
+            "description": "Generate the final channel mask using distance-based falloff from the centerline with the variable width profile, producing smooth anti-aliased edges for realistic rendering.",
+            "dependencies": [
+              2
+            ],
+            "details": "Construct the channel mask using broadcasting: `rows = np.arange(height, dtype=np.float32)[:, None]`, `center = centerline[None, :]`, `half_width = (width_profile / 2.0).astype(np.float32)[None, :]`. Compute distance from centerline: `distance = np.abs(rows - center)`. For anti-aliased edges, use a smooth falloff over ~2 pixels: create hard mask for fully inside channel (`distance <= half_width`), then add soft transition region where `half_width < distance < half_width + 2` using linear interpolation: `soft_edge = 1.0 - (distance - half_width) / 2.0`. Combine: `mask = np.where(distance <= half_width, 1.0, np.clip(soft_edge, 0.0, 1.0))`. Ensure final mask is clipped to [0, 1] and cast to float32. Update `generate_meandering()` to call the new function instead of `meander_variable_channel()`.",
+            "status": "pending",
+            "testStrategy": "Visual inspection: channel edges should appear smooth without stair-stepping artifacts. Verify mask values are in [0, 1]. Check that mask width at each column matches expected width_profile (within 2px for anti-aliasing). Test with various base_width values (small channels ~20px, large channels ~50px). Integration test: run full `generate_meandering()` pipeline and verify output masks are valid."
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Rewrite Braided Network with Confluence-Bifurcation Dynamics",
+        "description": "Replace `braided_threads()` and `seed_bars()` with `braided_network()` that generates channels that actually split and merge (not parallel sinusoids) with bifurcation spacing 4-5× width and bar aspect ratio ≈5:1.",
+        "details": "Replace braided generation functions in `geologic_generators.py`:\n\n```python\ndef braided_network(\n    height: int,\n    width: int,\n    channel_width: float,\n    rng: np.random.Generator,\n    bifurcation_factor: tuple[float, float] = (4.0, 5.0),\n    bar_aspect_ratio: float = 5.0,\n) -> tuple[Array, Array, list[dict]]:\n    \"\"\"Generate braided network with splitting/merging channels (anchor-fluvial-braided-network).\n    \n    Constraints from research:\n    - B2: Bifurcation spacing = 4-5× channel width\n    - B3: Channels SPLIT and MERGE (not parallel)\n    - B4: Bar aspect ratio ≈ 5:1\n    - B5: Bars form at BIFURCATION points\n    \"\"\"\n    channel_mask = np.zeros((height, width), dtype=np.float32)\n    bar_mask = np.zeros((height, width), dtype=np.float32)\n    \n    bifurcation_spacing = rng.uniform(*bifurcation_factor) * channel_width\n    \n    # Track active channels: list of {y: float, width: float, flow: float}\n    active_channels = [{\n        'y': height / 2.0,\n        'width': channel_width,\n        'flow': 1.0,\n        'id': 0\n    }]\n    \n    metadata = []\n    distance_since_bifurcation = 0\n    next_channel_id = 1\n    \n    for x in range(width):\n        distance_since_bifurcation += 1\n        new_channels = []\n        \n        for ch in active_channels:\n            # Random walk for channel position\n            ch['y'] += rng.normal(0, channel_width * 0.02)\n            ch['y'] = np.clip(ch['y'], height * 0.15, height * 0.85)\n            \n            # Check for BIFURCATION\n            if (distance_since_bifurcation >= bifurcation_spacing and \n                len(active_channels) < 6 and\n                rng.random() < 0.4):\n                \n                # Create bar at bifurcation point\n                bar_length = rng.uniform(4, 6) * channel_width\n                bar_width = bar_length / bar_aspect_ratio\n                bar = _ellipse_patch(\n                    int(ch['y']), x,\n                    height, width,\n                    bar_width / 2, bar_length / 2\n                )\n                bar_mask = np.maximum(bar_mask, bar * 0.8)\n                \n                # Split into two channels around bar\n                offset = channel_width * 0.5\n                flow_split = rng.uniform(0.4, 0.6)\n                ch1 = {\n                    'y': ch['y'] - offset,\n                    'width': ch['width'] * 0.7,\n                    'flow': ch['flow'] * flow_split,\n                    'id': next_channel_id\n                }\n                ch2 = {\n                    'y': ch['y'] + offset,\n                    'width': ch['width'] * 0.6,\n                    'flow': ch['flow'] * (1 - flow_split),\n                    'id': next_channel_id + 1\n                }\n                new_channels.extend([ch1, ch2])\n                next_channel_id += 2\n                distance_since_bifurcation = 0\n                continue\n            \n            # Check for CONFLUENCE (merge close channels)\n            merged = False\n            for other in new_channels:\n                if abs(ch['y'] - other['y']) < channel_width * 0.8:\n                    # Merge channels\n                    other['y'] = (other['y'] * other['flow'] + ch['y'] * ch['flow']) / (other['flow'] + ch['flow'])\n                    other['width'] = min(channel_width * 1.2, other['width'] + ch['width'] * 0.3)\n                    other['flow'] += ch['flow']\n                    merged = True\n                    break\n            \n            if not merged:\n                new_channels.append(ch)\n        \n        # Draw channels at this x position\n        for ch in new_channels:\n            y_center = int(np.clip(ch['y'], 0, height - 1))\n            half_w = int(ch['width'] / 2)\n            y_min = max(0, y_center - half_w)\n            y_max = min(height, y_center + half_w + 1)\n            channel_mask[y_min:y_max, x] = np.maximum(\n                channel_mask[y_min:y_max, x],\n                ch['flow']\n            )\n        \n        active_channels = new_channels\n        metadata.append({'n_channels': len(active_channels), 'x': x})\n    \n    return (\n        np.clip(channel_mask, 0.0, 1.0).astype(np.float32),\n        np.clip(bar_mask, 0.0, 1.0).astype(np.float32),\n        metadata\n    )\n```\n\nUpdate `generate_braided()` to use this new function.\n\nKey changes:\n1. Channels actually SPLIT at bifurcations and MERGE at confluences\n2. Bifurcation spacing is 4-5× channel width\n3. Bars are placed AT bifurcation points (not random)\n4. Bar aspect ratio is 5:1\n5. No more parallel sinusoids",
+        "testStrategy": "1. Generate 50 braided networks with different seeds\n2. Verify channels split and merge (count bifurcations and confluences)\n3. Measure bifurcation spacing - should be 4-5× channel width\n4. Measure bar dimensions - aspect ratio should be ≈5:1 (±20%)\n5. Verify bars are located at bifurcation points\n6. Visual inspection: should show branching/merging pattern, not parallel lines",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Active Channel Tracking Data Structure",
+            "description": "Create the core channel tracking system that maintains state for multiple active channels as they evolve downstream through the braided network.",
+            "dependencies": [],
+            "details": "Define the channel data structure as a TypedDict or dataclass containing: `y` (float - vertical position), `width` (float - channel width), `flow` (float - relative discharge 0-1), and `id` (int - unique identifier). Implement initialization from a single trunk channel at x=0 centered at height/2. Include helper functions: `_init_trunk_channel(height, channel_width, rng)` returning initial channel dict, and `_random_walk_channel(ch, rng, channel_width, height)` applying Gaussian drift (σ = 0.02×width) with bounds clamping to [0.15×height, 0.85×height]. Add type aliases for clarity: `ChannelState = dict[str, float | int]` and `ActiveChannels = list[ChannelState]`.",
+            "status": "pending",
+            "testStrategy": "Unit test: verify initial trunk channel has flow=1.0, width=channel_width, y≈height/2. Test random walk stays within bounds after 1000 iterations. Test channel dict contains required keys."
+          },
+          {
+            "id": 2,
+            "title": "Implement Bifurcation Logic with Bar Creation at Split Points",
+            "description": "Create the bifurcation detection and execution logic that splits channels and places bars at bifurcation points with 5:1 aspect ratio.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement `_attempt_bifurcation(ch, active_channels, distance_since_bifurcation, bifurcation_spacing, bar_aspect_ratio, channel_width, height, width, x, rng)` that: (1) checks if `distance >= spacing` AND `len(active_channels) < 6` AND `rng.random() < 0.4`, (2) creates bar using `_ellipse_patch()` with dimensions `bar_length = rng.uniform(4,6) × channel_width` and `bar_width = bar_length / bar_aspect_ratio`, (3) splits into two child channels with offset = 0.5×channel_width, widths scaled by 0.7 and 0.6, and flow distributed by random split ratio [0.4, 0.6]. Return tuple of (new_channels, bar_patch, did_bifurcate). Bifurcation spacing must be `rng.uniform(*bifurcation_factor) × channel_width` where factor=(4.0, 5.0).",
+            "status": "pending",
+            "testStrategy": "Test bifurcation creates exactly 2 child channels. Verify bar aspect ratio = length/width ≈ 5:1 (±20%). Verify bifurcation only occurs when distance threshold met. Verify flow conservation: child_flow_1 + child_flow_2 = parent_flow."
+          },
+          {
+            "id": 3,
+            "title": "Implement Confluence Logic for Merging Close Channels",
+            "description": "Create the confluence detection and merging logic that combines channels when they come within proximity threshold.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement `_attempt_confluence(ch, accumulated_channels, channel_width)` that iterates through accumulated channels to find any with `|ch.y - other.y| < 0.8×channel_width`. When found: merge by computing flow-weighted average position `new_y = (other.y × other.flow + ch.y × ch.flow) / (other.flow + ch.flow)`, combined width `min(1.2×channel_width, other.width + ch.width×0.3)`, and summed flow. Return (merged_into_id, updated_other) or (None, None) if no merge. The confluence threshold of 0.8×width prevents channels from crossing without merging while allowing distinct parallel flow.",
+            "status": "pending",
+            "testStrategy": "Test merge occurs when channels within threshold. Verify merged position is flow-weighted average. Verify merged flow = sum of parent flows. Test no merge when channels exceed threshold distance."
+          },
+          {
+            "id": 4,
+            "title": "Replace Parallel Sinusoid Generation with Downstream-Marching Algorithm",
+            "description": "Implement the main `braided_network()` function that orchestrates the downstream-marching split/merge algorithm replacing `braided_threads()` and `seed_bars()`.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Create `braided_network(height, width, channel_width, rng, bifurcation_factor=(4.0,5.0), bar_aspect_ratio=5.0) -> tuple[Array, Array, list[dict]]` that: (1) initializes channel_mask and bar_mask as zeros, (2) computes bifurcation_spacing from factor×width, (3) starts with single trunk channel, (4) iterates x from 0 to width, at each step: apply random walk to all channels, check bifurcation conditions, check confluence for close channels, draw channel widths to mask at current x. Channel drawing: for each ch, compute y_center, half_w, and set `channel_mask[y_min:y_max, x] = max(current, ch.flow)`. Update `generate_braided()` to call `braided_network()` instead of `braided_threads()` + `seed_bars()`, mapping returned masks appropriately.",
+            "status": "pending",
+            "testStrategy": "Generate 50 networks with different seeds. Verify output contains both bifurcations (channel count increases) and confluences (channel count decreases). Measure bifurcation spacing distribution - mean should be 4-5× channel_width. Verify bar positions correlate with bifurcation x-coordinates."
+          },
+          {
+            "id": 5,
+            "title": "Generate Metadata Tracking Bifurcation and Confluence Events",
+            "description": "Add comprehensive metadata generation that records network evolution events for QA validation and analysis.",
+            "dependencies": [
+              4
+            ],
+            "details": "Extend `braided_network()` to return detailed metadata list containing per-column records: `{'x': int, 'n_channels': int, 'event': Optional[str], 'event_details': Optional[dict]}`. Event types: 'bifurcation' with details `{'parent_id': int, 'child_ids': [int, int], 'bar_center': (y, x), 'bar_dims': (length, width)}`, 'confluence' with details `{'merged_ids': [int, int], 'result_id': int, 'merge_y': float}`. Add summary statistics to metadata: `{'total_bifurcations': int, 'total_confluences': int, 'mean_bifurcation_spacing': float, 'mean_bar_aspect_ratio': float}`. This enables automated QA checking that spacing and aspect ratio constraints are met.",
+            "status": "pending",
+            "testStrategy": "Verify metadata length equals image width. Count bifurcation events and verify spacing matches 4-5× width constraint for >95% of events. Verify bar aspect ratios in metadata average ≈5:1. Test confluence events show correct ID merging."
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Enhance Anastomosing Generator with Avulsion Dynamics",
+        "description": "Enhance `anasto_paths()` with `anasto_network_avulsion()` that creates channels branching from parent channels at gradient-advantage avulsion points instead of independent parallel random walks.",
+        "details": "Replace `anasto_paths()` in `geologic_generators.py`:\n\n```python\ndef anasto_network_avulsion(\n    height: int,\n    width: int,\n    branch_count: int,\n    rng: np.random.Generator,\n    gradient_threshold: float = 1.2,\n    sinuosity_range: tuple[float, float] = (1.0, 1.3),\n) -> tuple[Array, list[Array], list[dict]]:\n    \"\"\"Create anastomosing network with avulsion-connected channels (anchor-fluvial-anasto-avulsion).\n    \n    Constraints from research:\n    - A2: Low sinuosity S ∈ [1.0, 1.3]\n    - A3/A5: Avulsion based on gradient advantage (S_fp/S_ch > γ)\n    - A7: Channels branch FROM parent channels\n    \"\"\"\n    combined = np.zeros((height, width), dtype=np.float32)\n    centerlines: list[Array] = []\n    branch_info: list[dict] = []\n    \n    # Create PRIMARY channel first (low sinuosity)\n    primary_y = height / 2.0\n    primary_centerline = np.zeros(width, dtype=np.float32)\n    \n    # Low-sinuosity primary channel\n    sinuosity_target = rng.uniform(*sinuosity_range)\n    drift_scale = (sinuosity_target - 1.0) * height * 0.1\n    \n    for x in range(width):\n        drift = rng.normal(0.0, drift_scale * 0.01)\n        primary_y = np.clip(primary_y + drift, height * 0.3, height * 0.7)\n        primary_centerline[x] = primary_y\n    \n    # Smooth for low sinuosity\n    primary_centerline = ndimage.gaussian_filter1d(primary_centerline, sigma=width//20)\n    \n    channel_width = rng.uniform(8.0, 14.0)\n    primary_mask = _centerline_mask(primary_centerline, height, width, channel_width)\n    combined = np.maximum(combined, primary_mask)\n    centerlines.append(primary_centerline.astype(np.float32))\n    branch_info.append({'width_px': channel_width, 'parent': None, 'avulsion_x': 0})\n    \n    # Create AVULSION branches from primary\n    for i in range(1, branch_count):\n        # Select parent channel (preferentially from main trunk)\n        parent_idx = 0 if rng.random() < 0.7 else rng.integers(0, len(centerlines))\n        parent_centerline = centerlines[parent_idx]\n        \n        # Find avulsion point based on gradient advantage\n        # Higher gradient = more likely avulsion\n        gradients = np.abs(np.gradient(parent_centerline))\n        gradient_scores = gradients / (gradients.mean() + 1e-6)\n        \n        # Avulsion more likely where gradient advantage exists\n        avulsion_probs = np.where(gradient_scores > gradient_threshold, gradient_scores, 0)\n        if avulsion_probs.sum() > 0:\n            avulsion_probs = avulsion_probs / avulsion_probs.sum()\n            avulsion_x = rng.choice(width, p=avulsion_probs)\n        else:\n            avulsion_x = rng.integers(width // 4, 3 * width // 4)\n        \n        # Create branch from avulsion point\n        branch_centerline = np.zeros(width, dtype=np.float32)\n        branch_y = parent_centerline[avulsion_x]\n        \n        # Branch diverges from parent\n        diverge_direction = rng.choice([-1, 1])\n        diverge_rate = rng.uniform(0.01, 0.03) * height\n        \n        for x in range(width):\n            if x < avulsion_x:\n                # Before avulsion: follow parent\n                branch_centerline[x] = parent_centerline[x]\n            else:\n                # After avulsion: diverge\n                dx = x - avulsion_x\n                branch_y += diverge_direction * diverge_rate * 0.01 + rng.normal(0, drift_scale * 0.005)\n                branch_y = np.clip(branch_y, height * 0.1, height * 0.9)\n                branch_centerline[x] = branch_y\n        \n        branch_width = rng.uniform(6.0, 12.0)\n        branch_mask = _centerline_mask(branch_centerline, height, width, branch_width)\n        combined = np.maximum(combined, branch_mask)\n        centerlines.append(branch_centerline.astype(np.float32))\n        branch_info.append({\n            'width_px': branch_width,\n            'parent': parent_idx,\n            'avulsion_x': int(avulsion_x)\n        })\n    \n    return np.clip(combined, 0.0, 1.0), centerlines, branch_info\n```\n\nUpdate `generate_anastomosing()` to use this function and validate wetland coverage.\n\nKey changes:\n1. Primary channel established first\n2. Branches AVULSE from parent channels (not independent)\n3. Avulsion points selected by gradient advantage\n4. Low sinuosity (1.0-1.3) enforced\n5. Channels share paths before avulsion point",
+        "testStrategy": "1. Generate anastomosing networks with varying branch counts\n2. Verify all branches connect to parent channel at avulsion point\n3. Verify sinuosity is within [1.0, 1.3] for all channels\n4. Verify avulsion points occur at gradient-advantage locations\n5. Validate 60-90% wetland coverage in make_marsh output\n6. Visual inspection: channels should visibly branch from each other",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Primary Channel with Low Sinuosity Constraint",
+            "description": "Create the primary/trunk channel for the anastomosing network with enforced low sinuosity (S ∈ [1.0, 1.3]) using constrained random walk with Gaussian smoothing.",
+            "dependencies": [],
+            "details": "Add the primary channel generation logic to `anasto_network_avulsion()` in `geologic_generators.py`. The primary channel should: (1) Start at height/2 and drift with low variance controlled by `sinuosity_range` parameter, (2) Apply Gaussian smoothing (sigma=width//20) to enforce low sinuosity, (3) Use `_centerline_mask()` to generate the channel mask, (4) Store centerline and metadata with `parent: None` in `branch_info`. The sinuosity should be calculated as path_length/straight_distance and validated to be within [1.0, 1.3]. This establishes the trunk from which all avulsion branches will diverge.",
+            "status": "pending",
+            "testStrategy": "Test that generated primary channel sinuosity is within [1.0, 1.3] range. Calculate sinuosity as sum of segment lengths / direct distance. Run with 10+ seeds and verify all pass constraint. Visual inspection should show a relatively straight channel."
+          },
+          {
+            "id": 2,
+            "title": "Implement Gradient Advantage Calculation for Avulsion Point Selection",
+            "description": "Create the gradient-based avulsion point selection algorithm that identifies locations where floodplain gradient exceeds channel gradient by threshold ratio (A3/A5 constraints).",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement gradient advantage detection within `anasto_network_avulsion()`. For each parent channel centerline: (1) Compute local gradients using `np.gradient(centerline)`, (2) Normalize gradients to get gradient_scores = |gradients| / mean(|gradients|), (3) Apply `gradient_threshold` (default 1.2) to filter potential avulsion points, (4) Convert to probability distribution for stochastic selection via `rng.choice()`, (5) Fall back to uniform sampling in middle 50% of width if no gradient advantage points exist. This ensures avulsion occurs at physically realistic locations where the river system seeks gradient advantage.",
+            "status": "pending",
+            "testStrategy": "Verify avulsion points cluster at high-gradient locations on parent channels. Create synthetic centerlines with known high-curvature regions and confirm avulsion selection bias. Statistical test: avulsion_x distribution should be non-uniform and correlated with gradient peaks."
+          },
+          {
+            "id": 3,
+            "title": "Create Avulsion Branches Diverging from Parent Channels",
+            "description": "Implement branch channel generation that shares path with parent before avulsion point and diverges after, maintaining A7 constraint that channels branch FROM parent channels.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "For each branch (1 to branch_count-1) in `anasto_network_avulsion()`: (1) Select parent channel with 70% preference for primary trunk (index 0), (2) Use gradient advantage algorithm to find avulsion_x, (3) Create branch_centerline that copies parent_centerline[0:avulsion_x], (4) After avulsion_x, diverge with direction (+/-1) and rate (0.01-0.03 * height), (5) Apply low-amplitude drift while maintaining low sinuosity, (6) Clip to image bounds with margin, (7) Generate mask via `_centerline_mask()` with slightly narrower width (6-12px vs 8-14px for primary), (8) Combine with `np.maximum()` to preserve parent where paths overlap.",
+            "status": "pending",
+            "testStrategy": "Verify branch centerlines exactly match parent before avulsion_x. Compare branch_centerline[:avulsion_x] == parent_centerline[:avulsion_x]. Verify divergence starts immediately after avulsion point. Visual test: branches should visually connect to parent channels."
+          },
+          {
+            "id": 4,
+            "title": "Track Parent-Child Relationships and Validate Wetland Coverage",
+            "description": "Implement comprehensive branch_info metadata tracking and integrate with generate_anastomosing() including 60-90% wetland coverage validation.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Finalize `anasto_network_avulsion()` with proper metadata: (1) Each branch_info dict includes: width_px, parent (int or None for primary), avulsion_x (int), sinuosity (float computed from centerline). (2) Update `generate_anastomosing()` to call `anasto_network_avulsion()` instead of `anasto_paths()`, passing new parameters (gradient_threshold, sinuosity_range) from params dict with defaults. (3) Add wetland coverage validation: compute `wetland_fraction = (marsh_mask > 0).sum() / (height * width)` and log warning if outside [0.6, 0.9] range. (4) Expose branch_info via masks['_metadata_branch_info'] for downstream analysis. (5) Update function docstring with anchor `anchor-fluvial-anasto-avulsion`.",
+            "status": "pending",
+            "testStrategy": "Run generate_anastomosing() with branch_count=3-5 and verify: (1) branch_info has correct parent indices (0 for children of primary), (2) avulsion_x values are within valid range, (3) wetland coverage is logged and typically in 60-90% range, (4) metadata is accessible in returned masks dict. Integration test with full anastomosing generation pipeline."
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Implement Validation Functions and Acceptance Testing",
+        "description": "Create validation functions that measure all physics constraints and integrate them into generation pipelines. Implement acceptance criteria checking from the PRD.",
+        "details": "Create `src/analog_image_generator/validation.py`:\n\n```python\n\"\"\"Validation functions for physics-based generator acceptance criteria.\"\"\"\n\nfrom dataclasses import dataclass\nfrom typing import Optional\nimport numpy as np\nfrom numpy.typing import NDArray\n\nfrom .geometry_helpers import (\n    measure_wavelength,\n    measure_sinuosity,\n    measure_radius_of_curvature,\n    compute_local_curvature,\n)\n\n@dataclass\nclass MeanderingValidation:\n    wavelength_ratio: float  # λ / channel_width, should be 10-14\n    radius_ratio: float  # R_c / channel_width at apexes, should be 2-3\n    sinuosity: float  # should be 1.5-3.0\n    point_bars_on_inner_only: bool\n    scroll_bars_in_point_bars_only: bool\n    oxbows_at_cutoffs_only: bool\n    levee_decay_exponential: bool\n    width_increases_with_curvature: bool\n    \n    @property\n    def passes_all(self) -> bool:\n        return (\n            10.0 <= self.wavelength_ratio <= 14.0 and\n            2.0 <= self.radius_ratio <= 3.0 and\n            1.5 <= self.sinuosity <= 3.0 and\n            self.point_bars_on_inner_only and\n            self.scroll_bars_in_point_bars_only and\n            self.oxbows_at_cutoffs_only and\n            self.levee_decay_exponential and\n            self.width_increases_with_curvature\n        )\n\ndef validate_meandering(\n    centerline: NDArray,\n    channel_width: float,\n    masks: dict[str, NDArray],\n) -> MeanderingValidation:\n    \"\"\"Validate meandering generation against physics criteria.\"\"\"\n    \n    # G1: Wavelength\n    wavelength = measure_wavelength(centerline)\n    wavelength_ratio = wavelength / channel_width\n    \n    # G2: Radius of curvature\n    r_c_values = measure_radius_of_curvature(centerline)\n    radius_ratio = np.median(r_c_values) / channel_width if len(r_c_values) > 0 else 0\n    \n    # G4: Sinuosity\n    sinuosity = measure_sinuosity(centerline, len(centerline))\n    \n    # P1: Point bars on inner bends only\n    curvature = compute_local_curvature(centerline)\n    point_bar = masks.get('pointbar', np.zeros_like(centerline))\n    point_bars_on_inner_only = _validate_inner_bend_only(point_bar, curvature, centerline)\n    \n    # P3: Scroll bars in point bars only\n    scroll_bar = masks.get('scroll_bar', np.zeros(1))\n    scroll_bars_in_point_bars_only = _validate_contained_in(scroll_bar, point_bar)\n    \n    # O1: Oxbows at cutoffs (check shape is not circular)\n    oxbow = masks.get('oxbow', np.zeros(1))\n    oxbows_at_cutoffs_only = _validate_oxbow_shapes(oxbow)\n    \n    # L1: Exponential levee decay\n    levee = masks.get('levee', np.zeros(1))\n    channel = masks.get('channel', np.zeros(1))\n    levee_decay_exponential = _validate_exponential_decay(levee, channel)\n    \n    # C1: Width increases with curvature\n    width_increases_with_curvature = _validate_curvature_width_correlation(channel, curvature)\n    \n    return MeanderingValidation(\n        wavelength_ratio=wavelength_ratio,\n        radius_ratio=radius_ratio,\n        sinuosity=sinuosity,\n        point_bars_on_inner_only=point_bars_on_inner_only,\n        scroll_bars_in_point_bars_only=scroll_bars_in_point_bars_only,\n        oxbows_at_cutoffs_only=oxbows_at_cutoffs_only,\n        levee_decay_exponential=levee_decay_exponential,\n        width_increases_with_curvature=width_increases_with_curvature,\n    )\n\n@dataclass\nclass BraidedValidation:\n    has_bifurcations: bool\n    has_confluences: bool\n    bifurcation_spacing_ratio: float  # should be 4-5\n    bar_aspect_ratio: float  # should be ~5\n    bars_at_bifurcations: bool\n    \n    @property\n    def passes_all(self) -> bool:\n        return (\n            self.has_bifurcations and\n            self.has_confluences and\n            4.0 <= self.bifurcation_spacing_ratio <= 5.0 and\n            4.0 <= self.bar_aspect_ratio <= 6.0 and\n            self.bars_at_bifurcations\n        )\n\n@dataclass  \nclass AnastValidation:\n    sinuosity: float  # should be 1.0-1.3\n    channels_branch_from_parents: bool\n    wetland_coverage: float  # should be 0.6-0.9\n    \n    @property\n    def passes_all(self) -> bool:\n        return (\n            1.0 <= self.sinuosity <= 1.3 and\n            self.channels_branch_from_parents and\n            0.6 <= self.wetland_coverage <= 0.9\n        )\n```\n\nAdd validation calls to `generate_meandering()`, `generate_braided()`, `generate_anastomosing()` with optional `validate=True` parameter.\n\nUpdate `docs/GEOLOGIC_RULES.md` with new anchor mappings for all physics-based functions.",
+        "testStrategy": "1. Run validation on 100 generated images per style\n2. Verify >95% pass rate for all mandatory criteria\n3. Generate validation report CSV with per-image metrics\n4. Create QA notebook showing validation results visually\n5. Integration test: validation functions don't raise errors\n6. Performance test: validation adds <10% overhead to generation time",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create validation.py module with dataclasses for MeanderingValidation, BraidedValidation, and AnastValidation",
+            "description": "Set up the validation module structure with typed dataclasses that hold all validation results. Each dataclass includes measured values, boolean constraint checks, and a passes_all property.",
+            "dependencies": [],
+            "details": "Create `src/analog_image_generator/validation.py` with three dataclasses:\n\n1. **MeanderingValidation**: wavelength_ratio (float, 10-14), radius_ratio (float, 2-3), sinuosity (float, 1.5-3.0), point_bars_on_inner_only (bool), scroll_bars_in_point_bars_only (bool), oxbows_at_cutoffs_only (bool), levee_decay_exponential (bool), width_increases_with_curvature (bool). The `passes_all` property checks all 8 constraints.\n\n2. **BraidedValidation**: has_bifurcations (bool), has_confluences (bool), bifurcation_spacing_ratio (float, 4-5), bar_aspect_ratio (float, ~5), bars_at_bifurcations (bool). The `passes_all` property checks all 5 constraints.\n\n3. **AnastValidation**: sinuosity (float, 1.0-1.3), channels_branch_from_parents (bool), wetland_coverage (float, 0.6-0.9). The `passes_all` property checks all 3 constraints.\n\nAdd imports from geometry_helpers (Task 1 dependency), numpy, and typing. Include docstrings referencing the PRD section 4 acceptance criteria.",
+            "status": "pending",
+            "testStrategy": "1. Instantiate each dataclass with valid/invalid values\n2. Verify passes_all returns True for valid values within ranges\n3. Verify passes_all returns False when any constraint fails\n4. Test edge cases at boundary values (e.g., wavelength_ratio=10.0, 14.0)"
+          },
+          {
+            "id": 2,
+            "title": "Implement validate_meandering() with all 8+ constraint checks for wavelength, R_c, sinuosity, point bars, scroll bars, oxbows, levees, width variation",
+            "description": "Create the main meandering validation function that measures all physics constraints from the PRD and returns a MeanderingValidation result.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement `validate_meandering(centerline, channel_width, masks, rng=None) -> MeanderingValidation`:\n\n**Geometry checks (G1, G2, G4):**\n- wavelength_ratio: Call `measure_wavelength(centerline)` / `channel_width`, validate ∈ [10, 14]\n- radius_ratio: Call `measure_radius_of_curvature(centerline)` at apex points, compute median / channel_width, validate ∈ [2, 3]\n- sinuosity: Call `measure_sinuosity(centerline)`, validate ∈ [1.5, 3.0]\n\n**Deposit position checks (P1, P3):**\n- point_bars_on_inner_only: Implement `_validate_inner_bend_only(point_bar_mask, curvature, centerline)` - verify point bar pixels exist only where curvature indicates inner bend\n- scroll_bars_in_point_bars_only: Implement `_validate_contained_in(scroll_mask, point_bar_mask)` - verify all scroll bar pixels are inside point bar regions\n\n**Cutoff and decay checks (O1, L1, C1):**\n- oxbows_at_cutoffs_only: Implement `_validate_oxbow_shapes(oxbow_mask)` - verify oxbow shapes are elongated (not circular) using aspect ratio analysis\n- levee_decay_exponential: Implement `_validate_exponential_decay(levee_mask, channel_mask)` - fit decay profile and verify exponential shape (R² > 0.85)\n- width_increases_with_curvature: Implement `_validate_curvature_width_correlation(channel_mask, curvature)` - verify positive correlation between local curvature and channel width",
+            "status": "pending",
+            "testStrategy": "1. Generate meandering rivers with varying seeds and channel widths\n2. Verify wavelength ratio within [10, 14] for >95% of samples\n3. Verify R_c ratio within [2, 3] for >90% of bend apexes\n4. Test point bar position validation with synthetic inner/outer bend masks\n5. Test exponential decay detection with known exponential vs Gaussian profiles\n6. Verify no false positives on correctly generated images"
+          },
+          {
+            "id": 3,
+            "title": "Implement validate_braided() with bifurcation, confluence, and bar constraint checks",
+            "description": "Create the braided validation function that verifies network topology (splitting/merging) and bar geometry constraints from PRD section 2.2.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement `validate_braided(channel_mask, bar_mask, channel_width, rng=None) -> BraidedValidation`:\n\n**Network topology checks (B2, B3):**\n- has_bifurcations: Implement `_detect_bifurcations(channel_mask)` using skeleton analysis and junction detection (points with 3+ neighbors in skeleton)\n- has_confluences: Implement `_detect_confluences(channel_mask)` - confluences are bifurcations when traversed in reverse flow direction\n- bifurcation_spacing_ratio: Measure average distance between detected bifurcations / channel_width, validate ∈ [4, 5]\n\n**Bar geometry checks (B4, B5):**\n- bar_aspect_ratio: Implement `_measure_bar_aspect_ratios(bar_mask)` using connected component analysis and ellipse fitting. Calculate mean L/W ratio, validate ≈ 5:1 (±20% = 4.0-6.0)\n- bars_at_bifurcations: Implement `_validate_bars_at_bifurcations(bar_mask, bifurcation_points)` - verify bars are within threshold distance of bifurcation points\n\nUse scipy.ndimage for skeleton extraction and skimage.measure for connected component properties if available, otherwise implement pure numpy alternatives.",
+            "status": "pending",
+            "testStrategy": "1. Test bifurcation detection on synthetic branching channel patterns\n2. Verify confluence detection identifies merge points correctly\n3. Test bar aspect ratio measurement on known ellipses with 5:1 ratio\n4. Verify bars_at_bifurcations correctly identifies bar placement\n5. Test on 100 generated braided images, verify >95% pass rate"
+          },
+          {
+            "id": 4,
+            "title": "Implement validate_anastomosing() with sinuosity, branching hierarchy, and wetland coverage checks",
+            "description": "Create the anastomosing validation function that verifies channel characteristics and floodplain constraints from PRD section 2.3.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement `validate_anastomosing(channel_mask, centerlines, wetland_mask, shape, rng=None) -> AnastValidation`:\n\n**Channel characteristics (A2):**\n- sinuosity: For each channel centerline, call `measure_sinuosity()`, compute mean sinuosity across all branches, validate ∈ [1.0, 1.3]\n\n**Avulsion dynamics (A3-A5):**\n- channels_branch_from_parents: Implement `_validate_branching_hierarchy(centerlines)` - verify each non-primary channel originates from an existing channel rather than starting independently. Use centerline intersection analysis: secondary channels should have start points within threshold distance of a primary channel.\n\n**Floodplain characteristics (A8):**\n- wetland_coverage: Calculate `wetland_mask.sum() / (shape[0] * shape[1] - channel_mask.sum())` to get wetland fraction of non-channel area, validate ∈ [0.6, 0.9]\n\nHandle edge cases: empty centerlines list, zero wetland coverage, single-channel systems.",
+            "status": "pending",
+            "testStrategy": "1. Test sinuosity measurement on known straight (S=1.0) and curved paths\n2. Test branching hierarchy detection with synthetic parent-child channel arrangements\n3. Verify wetland coverage calculation with known mask fractions\n4. Test edge cases: single channel, no wetlands, overlapping channels\n5. Validate on 100 generated anastomosing images, verify >95% pass rate"
+          },
+          {
+            "id": 5,
+            "title": "Add optional validate=True parameter to generate_* functions and integrate validation calls with updated GEOLOGIC_RULES anchors",
+            "description": "Integrate validation into the generation pipeline with optional validation parameter, update documentation anchors, and create validation helper utilities.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "**Update generate_* functions in geologic_generators.py:**\n\n1. Add `validate: bool = False` parameter to `generate_meandering()`, `generate_braided()`, `generate_anastomosing()`\n\n2. When `validate=True`, call the appropriate validation function after generation completes. Store validation result in masks dict under key `_validation_result`.\n\n3. Add optional `validation_strict: bool = False` parameter - when True, raise `ValidationError` if `passes_all` is False.\n\n**Create helper functions in validation.py:**\n- `_validate_inner_bend_only()` - curvature-based inner bend detection\n- `_validate_contained_in()` - mask containment check\n- `_validate_oxbow_shapes()` - elongation ratio analysis\n- `_validate_exponential_decay()` - curve fitting and R² calculation\n- `_validate_curvature_width_correlation()` - Pearson correlation\n- `_detect_bifurcations()` and `_detect_confluences()` - skeleton junction analysis\n- `_measure_bar_aspect_ratios()` - connected component ellipse fitting\n- `_validate_bars_at_bifurcations()` - proximity check\n- `_validate_branching_hierarchy()` - centerline intersection analysis\n\n**Update docs/GEOLOGIC_RULES.md:**\n- Add new Validation section with anchors for each validation function\n- Reference PRD section 4 acceptance criteria\n- Link to validation module",
+            "status": "pending",
+            "testStrategy": "1. Test generate_meandering(validate=True) returns validation results in masks\n2. Test generate_braided(validate=True) returns validation results\n3. Test generate_anastomosing(validate=True) returns validation results\n4. Test validation_strict=True raises ValidationError on failing outputs\n5. Run validation on 100 images per style, verify >95% pass rate\n6. Verify GEOLOGIC_RULES.md anchors match function names\n7. Performance test: validation should add <10% to generation time"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Update Documentation and Anchor Mappings",
+        "description": "Update docs/GEOLOGIC_RULES.md with new anchor mappings for all physics-based functions. Ensure notebook references are updated.",
+        "details": "Update `docs/GEOLOGIC_RULES.md` with new entries:\n\n```markdown\n## Fluvial (Meandering) - Physics-Based\nEnv | Principle | Code Anchor | Notebook Anchor\n--- | --- | --- | ---\nMeandering | Arc-based centerline with λ=10-14×W | `geologic_generators.meander_centerline_physics()` | `#anchor-fluvial-meander-centerline-physics`\nMeandering | Point bars on inner bends only | `geologic_generators.add_point_bars()` | `#anchor-fluvial-point-bars`\nMeandering | Scroll bars confined to point bars | `geologic_generators.add_scroll_bars_physics()` | `#anchor-fluvial-scroll-bars-physics`\nMeandering | Oxbows at neck cutoffs only | `geologic_generators.add_oxbow_physics()` | `#anchor-fluvial-oxbow-physics`\nMeandering | Exponential levee decay h=h₀exp(-x/L_d) | `geologic_generators.add_levees_exponential()` | `#anchor-fluvial-levees-exponential`\nMeandering | Curvature-driven width variation ±15-30% | `geologic_generators.meander_variable_channel_curvature()` | `#anchor-fluvial-variable-width-curvature`\n\n## Fluvial (Braided) - Physics-Based\nEnv | Principle | Code Anchor | Notebook Anchor\n--- | --- | --- | ---\nBraided | Split/merge network with bifurcation spacing 4-5×W | `geologic_generators.braided_network()` | `#anchor-fluvial-braided-network`\nBraided | Bar aspect ratio 5:1 at bifurcations | `geologic_generators.braided_network()` | `#anchor-fluvial-braided-bars`\n\n## Fluvial (Anastomosing) - Physics-Based\nEnv | Principle | Code Anchor | Notebook Anchor\n--- | --- | --- | ---\nAnastomosing | Avulsion-connected branches S=1.0-1.3 | `geologic_generators.anasto_network_avulsion()` | `#anchor-fluvial-anasto-avulsion`\n\n## Validation\nEnv | Principle | Code Anchor | Notebook Anchor\n--- | --- | --- | ---\nAll Fluvial | Physics constraint validation | `validation.validate_meandering()` / `validate_braided()` / `validate_anastomosing()` | `#anchor-fluvial-validation`\n```\n\nCreate/update notebooks:\n1. `notebooks/fluvial_physics_validation.ipynb` - QA notebook showing validation results\n2. Update `notebooks/fluvial_meandering.ipynb` with new anchor cells\n3. Update `notebooks/fluvial_braided.ipynb` with new anchor cells\n4. Update `notebooks/fluvial_anastomosing.ipynb` with new anchor cells\n\nRun `python scripts/validate_geo_anchors.py` to verify all anchors are consistent.",
+        "testStrategy": "1. Run validate_geo_anchors.py - should pass with no errors\n2. Verify all new functions have corresponding anchor entries\n3. Verify notebook anchor cells reference correct functions\n4. Documentation review: all PRD formulas should be traceable to code",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Update docs/GEOLOGIC_RULES.md with Physics-Based Anchor Entries",
+            "description": "Add new sections for physics-based fluvial functions (Meandering, Braided, Anastomosing) and validation functions to docs/GEOLOGIC_RULES.md, following the existing tabular format.",
+            "dependencies": [],
+            "details": "Add three new sections to docs/GEOLOGIC_RULES.md following the existing tabular format:\n\n1. **Fluvial (Meandering) - Physics-Based** section with entries for:\n   - `meander_centerline_physics()` - Arc-based centerline with λ=10-14×W\n   - `add_point_bars()` - Point bars on inner bends only\n   - `add_scroll_bars_physics()` - Scroll bars confined to point bars\n   - `add_oxbow_physics()` - Oxbows at neck cutoffs only\n   - `add_levees_exponential()` - Exponential levee decay h=h₀exp(-x/L_d)\n   - `meander_variable_channel_curvature()` - Curvature-driven width variation ±15-30%\n\n2. **Fluvial (Braided) - Physics-Based** section with entries for:\n   - `braided_network()` - Split/merge network with bifurcation spacing 4-5×W\n   - `braided_network()` (bar aspect ratio) - Bar aspect ratio 5:1 at bifurcations\n\n3. **Fluvial (Anastomosing) - Physics-Based** section with entry for:\n   - `anasto_network_avulsion()` - Avulsion-connected branches S=1.0-1.3\n\n4. **Validation** section with entries for:\n   - `validation.validate_meandering()` - Physics constraint validation\n   - `validation.validate_braided()` - Physics constraint validation\n   - `validation.validate_anastomosing()` - Physics constraint validation\n\nFollow the existing Code Anchor format: `analog_image_generator.module.function_name(params) -> return_type`\nFollow the existing Notebook Anchor format: `notebooks/<notebook>.ipynb#anchor-<env>-<principle>`",
+            "status": "pending",
+            "testStrategy": "Run `python scripts/validate_geo_anchors.py` to verify all new anchor entries are consistent. Manually verify the tabular format is correct and all entries have valid notebook anchor references."
+          },
+          {
+            "id": 2,
+            "title": "Update Notebook Anchor Cells and Validate Consistency",
+            "description": "Add or update markdown anchor cells in fluvial_meandering.ipynb, fluvial_braided.ipynb, and fluvial_anastomosing.ipynb for physics-based functions, then run validate_geo_anchors.py.",
+            "dependencies": [
+              1
+            ],
+            "details": "Update notebook markdown cells with physics-based anchor references:\n\n1. **notebooks/fluvial_meandering.ipynb** - Add markdown cells with anchors:\n   - `<a id=\"anchor-fluvial-meander-centerline-physics\"></a>` - Arc-based centerline\n   - `<a id=\"anchor-fluvial-point-bars\"></a>` - Point bars on inner bends\n   - `<a id=\"anchor-fluvial-scroll-bars-physics\"></a>` - Scroll bars in point bars\n   - `<a id=\"anchor-fluvial-oxbow-physics\"></a>` - Neck cutoff oxbows\n   - `<a id=\"anchor-fluvial-levees-exponential\"></a>` - Exponential levee decay\n   - `<a id=\"anchor-fluvial-variable-width-curvature\"></a>` - Curvature-driven width\n   - `<a id=\"anchor-fluvial-validation\"></a>` - Validation entry point\n\n2. **notebooks/fluvial_braided.ipynb** - Add markdown cells with anchors:\n   - `<a id=\"anchor-fluvial-braided-network\"></a>` - Split/merge network\n   - `<a id=\"anchor-fluvial-braided-bars\"></a>` - Bar aspect ratios\n   - `<a id=\"anchor-fluvial-validation\"></a>` - Validation entry point\n\n3. **notebooks/fluvial_anastomosing.ipynb** - Add markdown cells with anchors:\n   - `<a id=\"anchor-fluvial-anasto-avulsion\"></a>` - Avulsion-connected branches\n   - `<a id=\"anchor-fluvial-validation\"></a>` - Validation entry point\n\n4. **Optionally create notebooks/fluvial_physics_validation.ipynb** - QA notebook showing validation results with visual demonstrations of physics constraints.\n\n5. Run `python scripts/validate_geo_anchors.py` to verify all anchors are consistent between GEOLOGIC_RULES.md and notebooks. Fix any mismatches reported by the script.",
+            "status": "pending",
+            "testStrategy": "1. Run `python scripts/validate_geo_anchors.py` - should pass with no errors.\n2. Verify each new anchor in notebooks has a corresponding entry in GEOLOGIC_RULES.md.\n3. Verify each GEOLOGIC_RULES.md entry points to a valid notebook anchor.\n4. Open notebooks in Jupyter and verify anchor links are clickable and navigate correctly."
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Integration Testing and Visual QA",
+        "description": "Create comprehensive integration tests and visual QA notebooks to verify the physics-based generators produce geologically realistic outputs that pass all acceptance criteria.",
+        "details": "Create integration test suite in `tests/test_physics_integration.py`:\n\n```python\nimport pytest\nimport numpy as np\nfrom analog_image_generator import geologic_generators as gg\nfrom analog_image_generator import utils\nfrom analog_image_generator.validation import (\n    validate_meandering,\n    validate_braided,\n    validate_anastomosing,\n)\n\nclass TestMeanderingPhysics:\n    @pytest.mark.parametrize('seed', range(10))\n    def test_wavelength_constraint(self, seed):\n        rng = utils.seeded_rng(seed)\n        params = {'seed': seed, 'height': 512, 'width': 512}\n        gray, masks = gg.generate_meandering(params, rng)\n        # Extract channel_width and centerline from generation\n        validation = validate_meandering(...)\n        assert 10 <= validation.wavelength_ratio <= 14\n    \n    @pytest.mark.parametrize('seed', range(10))\n    def test_point_bars_inner_only(self, seed):\n        rng = utils.seeded_rng(seed)\n        params = {'seed': seed}\n        gray, masks = gg.generate_meandering(params, rng)\n        assert 'pointbar' in masks\n        validation = validate_meandering(...)\n        assert validation.point_bars_on_inner_only\n    \n    def test_no_scroll_bars_outside_point_bars(self):\n        ...\n    \n    def test_oxbow_shapes_are_meander_loops(self):\n        ...\n\nclass TestBraidedPhysics:\n    def test_channels_split_and_merge(self):\n        ...\n    \n    def test_bifurcation_spacing(self):\n        ...\n    \n    def test_bar_aspect_ratio(self):\n        ...\n\nclass TestAnastPhysics:\n    def test_channels_branch_from_parents(self):\n        ...\n    \n    def test_low_sinuosity(self):\n        ...\n    \n    def test_wetland_coverage(self):\n        ...\n```\n\nCreate visual QA notebook `notebooks/physics_qa_visual.ipynb`:\n1. Generate 10 images per style with different seeds\n2. Display side-by-side with validation metrics overlay\n3. Highlight any failures with red borders\n4. Show wavelength/R_c measurements on meandering images\n5. Show bifurcation points on braided images\n6. Show avulsion points on anastomosing images\n\nCreate batch validation script `scripts/batch_validate_physics.py`:\n1. Generate N images per style\n2. Run validation on each\n3. Output CSV with all metrics\n4. Print summary pass/fail rates\n5. Flag any images failing acceptance criteria\n\nAcceptance criteria from PRD:\n- 100% meandering images pass wavelength validation\n- 100% meandering images have point bars on inner bends\n- 100% oxbows at valid cutoff locations\n- 100% braided images show channel splitting\n- β_iso within documented target bands",
+        "testStrategy": "1. Run full test suite: pytest tests/test_physics_integration.py\n2. All parameterized tests should pass\n3. Run batch validation: python scripts/batch_validate_physics.py --n=100\n4. Pass rate should be >95% for all criteria\n5. Visual review of QA notebook outputs\n6. Performance benchmark: generation time should not exceed 2x original",
+        "priority": "high",
+        "dependencies": [
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create tests/test_physics_integration.py with parameterized physics constraint tests",
+            "description": "Implement comprehensive pytest test classes for meandering, braided, and anastomosing physics validation using @pytest.mark.parametrize over 10 seeds.",
+            "dependencies": [],
+            "details": "Create `tests/test_physics_integration.py` with three test classes:\n\n**TestMeanderingPhysics:**\n- `test_wavelength_constraint(seed)`: Parameterized over seeds 0-9, validate λ/W ∈ [10, 14] using `validate_meandering()` from validation.py\n- `test_point_bars_inner_only(seed)`: Verify point bars exist only on inner bends via curvature sign checks\n- `test_no_scroll_bars_outside_point_bars()`: Assert scroll bar mask is subset of point bar region\n- `test_oxbow_shapes_are_meander_loops()`: Validate oxbow geometry matches cutoff meander loop patterns\n- `test_radius_of_curvature(seed)`: Verify R_c/W ∈ [2, 3] at bend apexes\n\n**TestBraidedPhysics:**\n- `test_channels_split_and_merge(seed)`: Validate bifurcation detection in channel topology\n- `test_bifurcation_spacing()`: Assert bifurcation points are spaced ≥ min threshold\n- `test_bar_aspect_ratio(seed)`: Verify bar dimensions match expected L/W ratios\n\n**TestAnastPhysics:**\n- `test_channels_branch_from_parents(seed)`: Validate parent-child channel connectivity\n- `test_low_sinuosity(seed)`: Assert sinuosity < 1.3 for anastomosing channels\n- `test_wetland_coverage(seed)`: Verify wetland fraction within acceptable bounds\n\nFollow existing test patterns from test_fluvial.py/test_braided.py. Use 512×512 image size for robust measurement. Import validation functions from `analog_image_generator.validation` module (Task 10 dependency).",
+            "status": "pending",
+            "testStrategy": "Run `pytest tests/test_physics_integration.py -v` with all 10 seeds. Verify 100% pass rate for wavelength and point bar tests. Use `pytest --tb=short` for failure diagnostics. Cross-validate a subset of results manually in the QA notebook."
+          },
+          {
+            "id": 2,
+            "title": "Create notebooks/physics_qa_visual.ipynb for visual validation and metric overlay",
+            "description": "Build interactive Jupyter notebook displaying side-by-side generated images with validation metrics, failure highlighting, and measurement annotations.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create `notebooks/physics_qa_visual.ipynb` with the following structure:\n\n**Cell 1 - Setup:** Import generators, validation module, matplotlib, and ipywidgets\n\n**Cell 2 - Generation Grid:** Generate 10 images per style (meandering, braided, anastomosing) with seeds 0-9 at 512×512 resolution\n\n**Cell 3 - Meandering QA Panel:**\n- Display 2×5 grid of meandering images\n- Overlay wavelength λ measurements as ruler annotations\n- Overlay R_c circles at bend apexes\n- Mark point bar inner-bend locations with green dots\n- Red border on any image failing validation criteria\n- Below each image: show λ/W ratio, R_c/W ratio, sinuosity\n\n**Cell 4 - Braided QA Panel:**\n- Display 2×5 grid of braided images\n- Mark bifurcation points with cyan markers\n- Show confluence points with magenta markers\n- Annotate bar aspect ratios\n- Red border for failures; metrics table below\n\n**Cell 5 - Anastomosing QA Panel:**\n- Display 2×5 grid of anastomosing images\n- Mark avulsion/crevasse splay points\n- Show parent→child channel connections as arrows\n- Annotate sinuosity per branch\n- Red border for failures; metrics table below\n\n**Cell 6 - Summary Statistics:** Aggregated pass/fail rates by style, histograms of key metrics, flagged images requiring manual review\n\nUse matplotlib overlays for annotations; avoid heavy ipywidgets for static QA. Style follows existing notebook patterns in v20a_interactive_rebuild.ipynb.",
+            "status": "pending",
+            "testStrategy": "Execute notebook top-to-bottom with `jupyter nbconvert --execute`. Verify all cells run without errors. Visual inspection: confirm overlays are correctly positioned (wavelength rulers span actual bends, bifurcation points are at channel splits). Verify red borders appear only on genuinely failing images."
+          },
+          {
+            "id": 3,
+            "title": "Create scripts/batch_validate_physics.py for batch validation with CSV output",
+            "description": "Implement command-line batch validation script that generates N images per style, runs validation, outputs CSV metrics, and prints pass/fail summary.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create `scripts/batch_validate_physics.py` with argparse CLI:\n\n**Arguments:**\n- `--n`, `-n`: Number of images per style (default=100)\n- `--styles`: Comma-separated styles to validate (default=meandering,braided,anastomosing)\n- `--output-csv`: Output CSV path (default=outputs/physics_validation.csv)\n- `--seed-start`: Starting seed (default=0)\n- `--size`: Image size as WxH (default=512x512)\n- `--fail-fast`: Stop on first failure (default=False)\n\n**Main loop:**\n```python\nfor style in styles:\n    for seed in range(seed_start, seed_start + n):\n        params = {'style': style, 'seed': seed, 'height': h, 'width': w}\n        gray, masks = gg.generate_fluvial(params)\n        validation = validate_function(gray, masks, params)\n        rows.append(validation.to_dict())\n```\n\n**CSV columns:**\n- realization_id, style, seed, width, height\n- For meandering: wavelength_ratio, wavelength_valid, rc_ratio, rc_valid, point_bars_inner_only, oxbow_valid, sinuosity\n- For braided: has_bifurcations, bifurcation_count, bar_aspect_valid, channels_merge\n- For anastomosing: branch_connectivity_valid, sinuosity_low, wetland_fraction_valid\n- pass_all: Boolean overall pass\n\n**Summary output:**\n```\n=== Physics Validation Summary ===\nMeandering: 98/100 passed (98.0%)\n  - wavelength_valid: 100/100\n  - point_bars_inner_only: 98/100  [2 failures: seed=23, seed=67]\nBraided: 100/100 passed (100.0%)\nAnastomosing: 99/100 passed (99.0%)\nOverall: 297/300 passed (99.0%)\n```\n\nFollow smoke_test.py patterns for reporting integration. Exit code 0 if all pass, 1 if any failures.",
+            "status": "pending",
+            "testStrategy": "Run `python scripts/batch_validate_physics.py --n=10` for quick test. Verify CSV is created with correct columns. Run `--n=100` and verify summary matches CSV row counts. Test `--fail-fast` stops early on injected failure. Validate CSV can be loaded by pandas without errors."
+          },
+          {
+            "id": 4,
+            "title": "Establish performance benchmarks ensuring generation time ≤ 2× original",
+            "description": "Create performance benchmark tests that measure physics-based generator timing and assert generation remains within 2× of baseline non-physics generation time.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Add performance benchmarks in two locations:\n\n**1. tests/test_physics_integration.py - Add TestPerformance class:**\n```python\nclass TestPerformance:\n    @pytest.fixture(scope='class')\n    def baseline_times(self):\n        # Measure original generators (before physics) if available\n        # Or use documented baseline from PRD\n        return {'meandering': 0.5, 'braided': 0.4, 'anastomosing': 0.6}  # seconds\n    \n    @pytest.mark.parametrize('style', ['meandering', 'braided', 'anastomosing'])\n    def test_generation_time_within_2x(self, style, baseline_times):\n        import time\n        params = {'style': style, 'seed': 42, 'height': 512, 'width': 512}\n        start = time.perf_counter()\n        gg.generate_fluvial(params)\n        elapsed = time.perf_counter() - start\n        max_allowed = baseline_times[style] * 2.0\n        assert elapsed <= max_allowed, f'{style} took {elapsed:.2f}s, max={max_allowed:.2f}s'\n```\n\n**2. scripts/batch_validate_physics.py - Add timing columns:**\n- Add `generation_time_s` and `validation_time_s` columns to CSV\n- Add `--benchmark` flag to output timing statistics\n- Print timing summary: mean, std, max per style\n\n**3. Create scripts/benchmark_physics.py (optional dedicated script):**\n- Run N iterations with warmup\n- Output timing statistics as JSON\n- Compare against documented baseline from PRD\n- Generate timing plots if matplotlib available\n\n**Baseline establishment:**\n- Document current non-physics generation times in outputs/baselines.json\n- Use these as reference for 2× threshold\n- Update baseline after each major release\n\nPerformance target: 512×512 generation should complete in <2 seconds for any style.",
+            "status": "pending",
+            "testStrategy": "Run `pytest tests/test_physics_integration.py::TestPerformance -v` on clean system (no heavy background processes). Verify all styles complete within 2× baseline. Run batch validation with `--benchmark` flag and verify timing CSV columns are populated. Test on multiple seeds to confirm consistent timing."
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-12-04T20:23:11.890Z",
+      "updated": "2025-12-04T20:23:11.890Z",
+      "description": "Tasks for fluvial-realism-v1 context"
+    }
   }
 }

@@ -2,19 +2,19 @@
   "models": {
     "main": {
       "provider": "claude-code",
-      "modelId": "claude-opus-4-5-20250929",
+      "modelId": "opus",
       "maxTokens": 200000,
       "temperature": 0.2
     },
     "research": {
       "provider": "claude-code",
-      "modelId": "claude-opus-4-5-20250929",
+      "modelId": "opus",
       "maxTokens": 200000,
       "temperature": 0.1
     },
     "fallback": {
       "provider": "claude-code",
-      "modelId": "claude-sonnet-4-5-20250929",
+      "modelId": "sonnet",
       "maxTokens": 200000,
       "temperature": 0.2
     }

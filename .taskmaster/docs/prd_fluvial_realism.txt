@@ -1,0 +1,809 @@
+Product Requirements Document (PRD)
+
+Project: Fluvial Geologic Process Realism — Physics-Based Generator Overhaul
+Tag: fluvial-realism-v1
+For: Integration with task-master-ai (MCP) and Claude Code
+Previous PRD: prd.txt (fluvial-v1) — preserved for reference; this PRD supersedes generator logic only
+Companion docs: research-documents/geologic-depositional-environments/*.pdf
+
+================================================================================
+EXECUTIVE SUMMARY
+================================================================================
+
+This PRD addresses the fundamental gap between current fluvial generators and true
+geologic realism. The existing implementation creates decorative patterns that
+superficially resemble fluvial features but lack the dimensional relationships
+and physical processes that make real fluvial systems recognizable.
+
+Key insight: The research documents contain precise quantitative formulas that
+MUST constrain the generation, not just inform slider ranges.
+
+Scope:
+- REPLACE core generation logic in geologic_generators.py
+- PRESERVE existing infrastructure (UI, stats, reporting, stacked_channels)
+- IMPLEMENT physics-based constraints from research documents
+- VALIDATE outputs against geologic acceptance criteria
+
+================================================================================
+1. PROBLEM STATEMENT
+================================================================================
+
+Current State:
+- Meander centerlines use arbitrary sinusoids with no wavelength-width coupling
+- Point bars do not exist (the defining feature of meandering rivers)
+- Scroll bars are concentric cosine bands everywhere, not lateral accretion on inner bends
+- Oxbows are random circles, not abandoned meander loops at neck cutoffs
+- Levees use Gaussian blur, not exponential decay profiles
+- Braided rivers are parallel sinusoids, not branching/merging networks
+- Anastomosing rivers lack avulsion dynamics
+
+Root Cause:
+The original PRD specified the SEQUENCE of operations but not the QUANTITATIVE
+PHYSICAL RELATIONSHIPS that govern each step.
+
+This PRD corrects that by extracting all dimensional formulas from the research
+documents and making them mandatory implementation constraints.
+
+================================================================================
+2. RESEARCH-DERIVED QUANTITATIVE CONSTRAINTS
+================================================================================
+
+All formulas below are extracted from the research documents and MUST be
+implemented. Each constraint includes its source for traceability.
+
+--------------------------------------------------------------------------------
+2.1 MEANDERING RIVER CONSTRAINTS
+Source: depositional_system_fluvial_meandering-river.pdf
+--------------------------------------------------------------------------------
+
+GEOMETRY CONSTRAINTS (MANDATORY):
+
+G1. Meander Wavelength
+    FORMULA: λ = k × W, where k ∈ [10, 14]
+    - λ = meander wavelength (distance between successive bend apexes on same side)
+    - W = channel width
+    - k = wavelength multiplier, sampled uniformly from [10, 14]
+    SOURCE: §2.2, empirical relationship from Leopold & Wolman
+
+G2. Radius of Curvature at Bend Apex
+    FORMULA: R_c = m × W, where m ∈ [2, 3]
+    - R_c = radius of curvature at tightest part of bend
+    - W = channel width
+    - m = curvature multiplier, sampled uniformly from [2, 3]
+    SOURCE: §2.2, fig. 4
+
+G3. Width/Depth Ratio (Meandering Threshold)
+    CONSTRAINT: W/d ∈ [10, 20] for meandering rivers
+    - Rivers with W/d > 50 will braid instead
+    - This is an implicit constraint (not directly rendered, but informs realism)
+    SOURCE: §2.1, classification criteria
+
+G4. Sinuosity
+    FORMULA: S = L_channel / L_valley, where S ∈ [1.5, 3.0]
+    - S = sinuosity (ratio of channel path length to straight-line distance)
+    - Highly sinuous rivers have S > 2.0
+    SOURCE: §2.2
+
+G5. Meander Bend Shape
+    CONSTRAINT: Bends are circular arcs, not sinusoids
+    - Each bend approximates a circular arc with radius R_c
+    - Transition zones (inflection points) connect successive bends
+    - Sinusoidal approximation is geometrically incorrect
+    SOURCE: §2.2, pseudocode
+
+POINT BAR CONSTRAINTS (MANDATORY — Currently Missing):
+
+P1. Point Bar Location
+    RULE: Point bars form ONLY on the INNER bank of meander bends
+    - Outer bank = cutbank (erosion)
+    - Inner bank = point bar (deposition)
+    - This asymmetry is the defining visual feature of meandering rivers
+    SOURCE: §3.1, helicoidal flow description
+
+P2. Point Bar Extent
+    FORMULA: Point bar extends from channel edge to ~1.5-2× channel width
+    - Width increases with bend curvature (tighter bends = larger point bars)
+    SOURCE: §3.1, fig. 5
+
+P3. Scroll Bar Pattern
+    RULE: Scroll bars are arcuate ridges marking successive point bar growth stages
+    - Concentric arcs following the shape of the bend
+    - Spacing reflects episodic lateral accretion
+    - NOT concentric circles around the entire channel
+    SOURCE: §3.2
+
+CURVATURE-DRIVEN DYNAMICS (MANDATORY — Currently Missing):
+
+C1. Width Variation with Curvature
+    RULE: Channel is WIDER in bends, NARROWER in straights
+    - Physics: lower velocity in bends allows more deposition
+    - Width variation: ±15-30% of mean width
+    SOURCE: §2.3
+
+C2. Migration Formula (Optional for Static Generation)
+    FORMULA: E_b(s) = k × (1/R_c(s) - 1/R_c^eq)
+    - E_b = bank erosion rate
+    - R_c(s) = local radius of curvature
+    - R_c^eq = equilibrium curvature
+    - This drives meander evolution over time
+    SOURCE: §4.1, Ikeda et al. model
+
+OXBOW CONSTRAINTS (MANDATORY):
+
+O1. Cutoff Criterion
+    RULE: Neck cutoff occurs when neck_distance < channel_width
+    - neck_distance = distance between upstream and downstream limbs of a bend
+    - This is DETERMINISTIC based on geometry, not random probability
+    SOURCE: §3.3
+
+O2. Oxbow Shape
+    RULE: Oxbow lake has the shape of the ABANDONED MEANDER LOOP
+    - NOT a circle or ellipse
+    - Shape matches the former channel planform
+    - Gradually fills with sediment (clay plug)
+    SOURCE: §3.3, fig. 7
+
+O3. Oxbow Location
+    RULE: Oxbows occur at locations where neck cutoffs have occurred
+    - Location is determined by bend geometry meeting cutoff criterion
+    - Multiple oxbows indicate channel migration history
+    SOURCE: §3.3
+
+LEVEE CONSTRAINTS (MANDATORY):
+
+L1. Exponential Decay Profile
+    FORMULA: h_levee(x) = h_0 × exp(-x / L_d)
+    - h_levee(x) = levee height at distance x from channel
+    - h_0 = maximum levee height at channel edge
+    - L_d = decay length, typically 5-15× channel width for meandering
+    SOURCE: §3.4
+
+L2. Levee Extent
+    FORMULA: Levees extend to ~3-5× channel width from bank
+    - Beyond this, transition to floodplain
+    SOURCE: §3.4
+
+--------------------------------------------------------------------------------
+2.2 BRAIDED RIVER CONSTRAINTS
+Source: depositional_system_fluvial_braided-river.pdf
+--------------------------------------------------------------------------------
+
+BRAIDING THRESHOLD (MANDATORY):
+
+B1. Width/Depth Ratio
+    CONSTRAINT: W/d > 50 for braiding
+    - Rivers with W/d < 50 will meander instead
+    - This should be enforced or at least validated
+    SOURCE: §2.1
+
+NETWORK DYNAMICS (MANDATORY — Currently Missing):
+
+B2. Confluence-Bifurcation Spacing
+    FORMULA: Spacing = k × W, where k ∈ [4, 5]
+    - Distance between successive bifurcations or confluences
+    - This creates the characteristic braided pattern
+    SOURCE: §2.2, fig. 4
+
+B3. Channel Splitting/Merging
+    RULE: Channels must SPLIT and MERGE, not run parallel
+    - At bifurcation: one channel splits into two around a bar
+    - At confluence: two channels merge
+    - Current implementation has parallel sinusoids (WRONG)
+    SOURCE: §2.2, network dynamics
+
+BAR CONSTRAINTS (MANDATORY):
+
+B4. Bar Aspect Ratio
+    FORMULA: L/W ≈ 5:1
+    - L = bar length (downstream direction)
+    - W = bar width (cross-stream direction)
+    - Current implementation uses arbitrary ellipses
+    SOURCE: §2.3, table 1
+
+B5. Bar Location
+    RULE: Bars form at BIFURCATION POINTS
+    - Bar causes channel to split around it
+    - Bar grows via downstream, lateral, and upstream accretion
+    SOURCE: §2.3
+
+B6. Regime Equation
+    FORMULA: W_b ≈ 56 × d_m^0.9656
+    - W_b = channel width
+    - d_m = mean depth
+    - Relates width to depth for regime channels
+    SOURCE: §2.1, empirical relationship
+
+--------------------------------------------------------------------------------
+2.3 ANASTOMOSING RIVER CONSTRAINTS
+Source: depositional_system_fluvial_anastomosing-river.pdf
+--------------------------------------------------------------------------------
+
+CHANNEL CHARACTERISTICS (MANDATORY):
+
+A1. Width/Depth Ratio
+    CONSTRAINT: W/D < 20 for anastomosing rivers
+    - Narrow and deep compared to braided
+    - Cohesive banks allow deep channels
+    SOURCE: §2.1
+
+A2. Low Sinuosity
+    CONSTRAINT: S ∈ [1.0, 1.3]
+    - Much straighter than meandering rivers
+    - Bank stability prevents lateral migration
+    SOURCE: §2.1
+
+AVULSION DYNAMICS (MANDATORY — Currently Missing):
+
+A3. Superelevation Criterion
+    FORMULA: S_e = (H_crest - H_fp) / D_bf
+    - S_e = superelevation ratio
+    - H_crest = levee crest elevation
+    - H_fp = floodplain elevation
+    - D_bf = bankfull depth
+    - Avulsion threshold: S_e ≈ 1.0
+    SOURCE: §3.1
+
+A4. Avulsion Timescale
+    FORMULA: T_avulsion ≈ H_crit / A_c
+    - T_avulsion = time between avulsion events
+    - H_crit = critical superelevation height
+    - A_c = aggradation rate
+    SOURCE: §3.1 (optional for static generation)
+
+A5. Gradient Advantage
+    FORMULA: Avulsion path selected where S_fp/S_ch > γ
+    - S_fp = floodplain gradient along potential avulsion path
+    - S_ch = existing channel gradient
+    - γ = threshold, typically 1.1-1.5
+    SOURCE: §3.2
+
+LEVEE CONSTRAINTS (MANDATORY):
+
+A6. Levee Decay Profile (Same as Meandering)
+    FORMULA: h_levee(x) = h_0 × exp(-x / L_d)
+    - Already correctly implemented in add_levees_narrow()
+    SOURCE: §2.3
+
+A7. Levee-Confined Belts
+    RULE: Channels are confined within levee ridges
+    - Levees prevent lateral migration
+    - Channel avulses rather than migrates
+    SOURCE: §2.3
+
+FLOODPLAIN CONSTRAINTS (MANDATORY):
+
+A8. Wetland Coverage
+    CONSTRAINT: 60-90% wetland floodplain coverage
+    - Anastomosing rivers have extensive wetlands between channels
+    - Current make_marsh() should validate this percentage
+    SOURCE: §2.4
+
+A9. Ribbon Sand Bodies
+    RULE: Channel sand bodies are ribbon-like, encased in mud
+    - Width:thickness ratio reflects narrow, deep channels
+    - Isolated in cross-section
+    SOURCE: §2.5
+
+================================================================================
+3. IMPLEMENTATION REQUIREMENTS
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 MEANDERING GENERATOR REWRITE
+File: src/analog_image_generator/geologic_generators.py
+--------------------------------------------------------------------------------
+
+FUNCTION: meander_centerline_physics(height, width, channel_width, rng)
+
+Purpose: Generate meander centerline with proper geometric constraints
+
+Algorithm:
+```
+wavelength = rng.uniform(10, 14) * channel_width
+radius_of_curvature = rng.uniform(2, 3) * channel_width
+n_bends = int(width / (wavelength / 2))  # Two half-wavelengths per full wavelength
+
+centerline = []
+current_pos = (0, height / 2)
+current_direction = 0  # radians, 0 = downstream
+
+for i in range(n_bends):
+    # Each bend is a circular arc
+    R = radius_of_curvature * rng.uniform(0.85, 1.15)  # Some variation
+    arc_angle = compute_arc_angle(wavelength, R)  # From geometry
+    sign = 1 if i % 2 == 0 else -1  # Alternate left/right
+
+    # Generate arc points
+    arc_points = generate_circular_arc(current_pos, R, arc_angle, sign, current_direction)
+    centerline.extend(arc_points)
+
+    # Update position and direction for next bend
+    current_pos = arc_points[-1]
+    current_direction += sign * arc_angle
+
+return np.array(centerline)
+```
+
+Acceptance Criteria:
+- Measured wavelength within 10-14× channel_width
+- Measured R_c within 2-3× channel_width
+- Sinuosity within 1.5-3.0
+
+--------------------------------------------------------------------------------
+
+FUNCTION: add_point_bars(centerline, channel_mask, channel_width, rng)
+
+Purpose: Create point bar deposits on inner bank of bends (CURRENTLY MISSING)
+
+Algorithm:
+```
+curvature = compute_local_curvature(centerline)
+point_bar_mask = np.zeros_like(channel_mask)
+
+for x in range(width):
+    if abs(curvature[x]) < threshold:
+        continue  # Straight section
+
+    # Determine inner bank side
+    inner_side = -np.sign(curvature[x])
+
+    # Point bar extent: 1.5-2× channel width from inner bank
+    bar_extent = rng.uniform(1.5, 2.0) * channel_width
+
+    # Create asymmetric point bar on inner side only
+    y_center = centerline[x]
+    for y in range(height):
+        offset = (y - y_center) * inner_side
+        if 0 < offset < bar_extent:
+            intensity = 1.0 - (offset / bar_extent) ** 0.5
+            point_bar_mask[y, x] = max(point_bar_mask[y, x], intensity)
+
+return point_bar_mask
+```
+
+Acceptance Criteria:
+- Point bars exist ONLY on inner bends
+- No point bar material on outer bends (cutbanks)
+- Point bar extent scales with channel width
+
+--------------------------------------------------------------------------------
+
+FUNCTION: add_scroll_bars_physics(centerline, point_bar_mask, channel_width, rng)
+
+Purpose: Create scroll bar pattern within point bars (REWRITE REQUIRED)
+
+Algorithm:
+```
+# Scroll bars are arcuate ridges within point bars
+# They follow the shape of successive bend positions
+
+scroll_mask = np.zeros_like(point_bar_mask)
+curvature = compute_local_curvature(centerline)
+
+# For each point with point bar
+for x in range(width):
+    if point_bar_mask[:, x].max() < 0.1:
+        continue
+
+    # Scroll bars are concentric arcs following bend curvature
+    # Spacing: typically 5-15% of point bar width
+    scroll_spacing = rng.uniform(0.05, 0.15) * channel_width
+
+    # Create arcuate bands following curvature direction
+    dist_from_channel = distance_transform(~channel_mask[:, x])
+    scroll_phase = (dist_from_channel / scroll_spacing) % 1.0
+    scroll_intensity = 0.5 * (np.cos(2 * np.pi * scroll_phase) + 1.0)
+
+    # Apply only within point bar
+    scroll_mask[:, x] = scroll_intensity * point_bar_mask[:, x]
+
+return scroll_mask
+```
+
+Acceptance Criteria:
+- Scroll bars appear only within point bars
+- Pattern follows bend curvature
+- No scroll bars on outer bends or floodplain
+
+--------------------------------------------------------------------------------
+
+FUNCTION: add_oxbow_physics(centerline, channel_mask, channel_width, rng)
+
+Purpose: Create oxbow lakes at neck cutoff locations (REWRITE REQUIRED)
+
+Algorithm:
+```
+oxbow_masks = []
+
+# Scan for potential neck cutoffs
+for x1 in range(len(centerline)):
+    for x2 in range(x1 + int(3 * channel_width), min(x1 + int(20 * channel_width), len(centerline))):
+        y1, y2 = centerline[x1], centerline[x2]
+        neck_distance = abs(y1 - y2)
+
+        # CUTOFF CRITERION: neck narrower than channel width
+        if neck_distance < channel_width:
+            # Create oxbow from abandoned meander loop
+            oxbow = np.zeros_like(channel_mask)
+
+            # Trace the abandoned loop shape
+            for x in range(x1, x2):
+                y_center = centerline[x]
+                # Oxbow is narrower than active channel (silting up)
+                half_width = channel_width * rng.uniform(0.3, 0.5)
+                y_min = int(max(0, y_center - half_width))
+                y_max = int(min(height, y_center + half_width))
+                oxbow[y_min:y_max, x] = 1.0
+
+            oxbow_masks.append(oxbow)
+
+            # Update centerline to "cut off" (take shorter path)
+            # This affects subsequent oxbow detection
+            break
+
+return combine_oxbows(oxbow_masks)
+```
+
+Acceptance Criteria:
+- Oxbows occur ONLY where neck_distance < channel_width
+- Oxbow shape matches abandoned meander loop
+- No random circle placement
+
+--------------------------------------------------------------------------------
+
+FUNCTION: add_levees_exponential(channel_mask, channel_width, h0, rng)
+
+Purpose: Create levees with proper exponential decay (REWRITE REQUIRED)
+
+Algorithm:
+```
+# Decay length: 5-15× channel width for meandering
+decay_length = rng.uniform(5, 15) * channel_width
+
+dist = distance_transform(~(channel_mask > 0.5))
+
+# Exponential decay: h(x) = h0 * exp(-x / L_d)
+levee = h0 * np.exp(-dist / decay_length)
+
+# Levee is adjacent to channel, not in channel
+levee = levee * (channel_mask < 0.3)
+
+# Levees extend to ~3-5× channel width
+max_extent = rng.uniform(3, 5) * channel_width
+levee = levee * (dist < max_extent)
+
+return np.clip(levee, 0, 1)
+```
+
+Acceptance Criteria:
+- Profile follows exponential decay
+- Decay length scales with channel width
+- Extent limited to 3-5× channel width
+
+--------------------------------------------------------------------------------
+
+FUNCTION: meander_variable_channel_curvature(centerline, shape, base_width, rng)
+
+Purpose: Variable width driven by curvature (REWRITE REQUIRED)
+
+Algorithm:
+```
+curvature = compute_local_curvature(centerline)
+curvature_normalized = curvature / (np.abs(curvature).max() + 1e-6)
+
+# Width increases with curvature magnitude
+# Variation: ±15-30% of base width
+variation_scale = rng.uniform(0.15, 0.30)
+width_variation = variation_scale * base_width * np.abs(curvature_normalized)
+width_profile = base_width + width_variation
+
+# Create mask with curvature-driven widths
+...
+```
+
+Acceptance Criteria:
+- Bends are wider than straights
+- Width variation is 15-30% of mean
+
+--------------------------------------------------------------------------------
+3.2 BRAIDED GENERATOR REWRITE
+File: src/analog_image_generator/geologic_generators.py
+--------------------------------------------------------------------------------
+
+FUNCTION: braided_network(height, width, channel_width, rng)
+
+Purpose: Generate branching/merging network (REWRITE REQUIRED)
+
+Algorithm:
+```
+bifurcation_spacing = rng.uniform(4, 5) * channel_width
+
+# Start with single channel
+active_channels = [{'y': height/2, 'width': channel_width, 'flow': 1.0}]
+channel_mask = np.zeros((height, width))
+bar_mask = np.zeros((height, width))
+
+distance_since_last_bifurcation = 0
+
+for x in range(width):
+    distance_since_last_bifurcation += 1
+    new_channels = []
+
+    for ch in active_channels:
+        # Check for bifurcation
+        if distance_since_last_bifurcation >= bifurcation_spacing:
+            if rng.random() < 0.6:  # Bifurcation probability
+                # Create bar with 5:1 aspect ratio
+                bar_length = rng.uniform(4, 6) * channel_width
+                bar_width = bar_length / 5.0
+                bar = create_bar(x, ch['y'], bar_length, bar_width)
+                bar_mask = np.maximum(bar_mask, bar)
+
+                # Split into two channels
+                offset = channel_width * 0.4
+                ch1 = {'y': ch['y'] - offset, 'width': ch['width']*0.6, 'flow': 0.6}
+                ch2 = {'y': ch['y'] + offset, 'width': ch['width']*0.5, 'flow': 0.4}
+                new_channels.extend([ch1, ch2])
+
+                distance_since_last_bifurcation = 0
+                continue
+
+        # Check for confluence with nearby channels
+        # (merge channels that are close together)
+        ...
+
+        new_channels.append(ch)
+
+    # Draw channel segments at x
+    for ch in new_channels:
+        draw_channel(channel_mask, x, ch['y'], ch['width'])
+
+    active_channels = new_channels
+
+return channel_mask, bar_mask
+```
+
+Acceptance Criteria:
+- Channels split and merge (not parallel)
+- Bifurcation spacing is 4-5× channel width
+- Bar aspect ratio ≈ 5:1
+
+--------------------------------------------------------------------------------
+3.3 ANASTOMOSING GENERATOR ENHANCEMENT
+File: src/analog_image_generator/geologic_generators.py
+--------------------------------------------------------------------------------
+
+FUNCTION: anasto_network_avulsion(height, width, branch_count, rng)
+
+Purpose: Generate avulsion-connected network (ENHANCEMENT REQUIRED)
+
+Algorithm:
+```
+# Start with primary channel
+channels = [create_primary_channel(height, width)]
+channel_mask = np.zeros((height, width))
+
+for i in range(branch_count - 1):
+    # Select parent channel for avulsion
+    parent = select_channel_for_avulsion(channels, rng)
+
+    # Find avulsion point based on gradient advantage
+    avulsion_x = find_avulsion_point(parent, gradient_threshold=1.2)
+
+    # Create new channel branching from avulsion point
+    new_channel = create_avulsion_channel(
+        parent,
+        avulsion_x,
+        gradient_advantage=rng.uniform(1.1, 1.5)
+    )
+
+    channels.append(new_channel)
+
+# Render all channels
+for ch in channels:
+    channel_mask = np.maximum(channel_mask, render_channel(ch))
+
+return channel_mask
+```
+
+Enhancement Notes:
+- Current implementation has parallel random walks
+- New implementation should have channels branching from each other
+- Avulsion points should be deterministic based on gradient
+
+Acceptance Criteria:
+- Channels branch from parent channels (not independent)
+- Branching occurs at gradient advantage points
+- 60-90% wetland coverage validated
+
+================================================================================
+4. VALIDATION & ACCEPTANCE CRITERIA
+================================================================================
+
+For each generated image, the following MUST be validated:
+
+MEANDERING VALIDATION:
+- [ ] Wavelength measured at 10-14× channel_width
+- [ ] Radius of curvature at 2-3× channel_width
+- [ ] Sinuosity in range 1.5-3.0
+- [ ] Point bars present on ALL inner bends
+- [ ] No point bar material on outer bends
+- [ ] Scroll bars confined to point bar regions
+- [ ] Oxbows at neck cutoff locations only
+- [ ] Oxbow shapes are meander loops (not circles)
+- [ ] Levee profile follows exponential decay
+- [ ] Channel wider in bends than straights
+
+BRAIDED VALIDATION:
+- [ ] Channels split and merge (not parallel)
+- [ ] Bifurcation spacing at 4-5× channel_width
+- [ ] Bar aspect ratio ≈ 5:1 (±20%)
+- [ ] Bars located at bifurcation points
+
+ANASTOMOSING VALIDATION:
+- [ ] Channels branch from parent channels
+- [ ] Low sinuosity (1.0-1.3)
+- [ ] Wetland coverage 60-90%
+- [ ] Levees follow exponential decay
+
+================================================================================
+5. FILES TO MODIFY
+================================================================================
+
+PRIMARY (Generator Rewrite):
+- src/analog_image_generator/geologic_generators.py
+  - meander_centerline → meander_centerline_physics
+  - add_scroll_bars → add_scroll_bars_physics
+  - add_oxbow → add_oxbow_physics
+  - add_levees → add_levees_exponential
+  - meander_variable_channel → meander_variable_channel_curvature
+  - braided_threads → braided_network
+  - anasto_paths → anasto_network_avulsion
+  - NEW: add_point_bars (currently missing)
+
+SECONDARY (Documentation):
+- docs/GEOLOGIC_RULES.md — Update anchors for new functions
+- notebooks/fluvial_*.ipynb — Update anchor references
+
+PRESERVED (No Changes):
+- src/analog_image_generator/utils.py
+- src/analog_image_generator/interactive.py
+- src/analog_image_generator/ui.py
+- src/analog_image_generator/stats.py
+- src/analog_image_generator/stacked_channels.py
+- src/analog_image_generator/reporting.py
+
+================================================================================
+6. TASK BREAKDOWN GUIDANCE FOR TASKMASTER
+================================================================================
+
+Recommended task structure:
+
+TASK 1: Implement helper functions for geometric computations
+- compute_local_curvature(centerline)
+- compute_arc_angle(wavelength, radius)
+- generate_circular_arc(...)
+- measure_wavelength(centerline)
+- measure_sinuosity(centerline)
+
+TASK 2: Rewrite meander_centerline with physics constraints
+- Implement arc-based bend generation
+- Enforce wavelength = 10-14× W
+- Enforce R_c = 2-3× W
+- Add validation/measurement functions
+
+TASK 3: Implement point bars (NEW FEATURE)
+- Create add_point_bars function
+- Inner bend detection from curvature
+- Asymmetric deposition logic
+- Integration with compose_meandering
+
+TASK 4: Rewrite scroll bars for point bar regions
+- Confine to point bar mask
+- Arcuate pattern following curvature
+- Remove old concentric band logic
+
+TASK 5: Rewrite oxbow generation with cutoff criterion
+- Neck distance calculation
+- Cutoff criterion enforcement
+- Meander loop shape preservation
+- Remove random circle placement
+
+TASK 6: Implement exponential levee decay
+- Apply h(x) = h0 * exp(-x/L_d) formula
+- Scale decay length with channel width
+- Replace Gaussian blur approach
+
+TASK 7: Implement curvature-driven width variation
+- Width increases in bends
+- 15-30% variation from mean
+- Replace arbitrary interpolation
+
+TASK 8: Rewrite braided network with confluence-bifurcation
+- Channel splitting/merging logic
+- Bifurcation spacing = 4-5× W
+- Bar placement at bifurcations
+- Bar aspect ratio ≈ 5:1
+
+TASK 9: Enhance anastomosing with avulsion dynamics
+- Channels branch from parents
+- Gradient advantage for avulsion paths
+- Validate 60-90% wetland coverage
+
+TASK 10: Validation and acceptance testing
+- Implement measurement functions
+- Add validation to generate_* functions
+- Create visual QA notebooks
+- Update GEOLOGIC_RULES anchors
+
+================================================================================
+7. SOURCES & REFERENCES
+================================================================================
+
+Primary Sources (in research-documents/geologic-depositional-environments/):
+- depositional_system_fluvial_meandering-river.pdf — §2-4, figs 4-8
+- depositional_system_fluvial_braided-river.pdf — §2-3, figs 4-6
+- depositional_system_fluvial_anastomosing-river.pdf — §2-3, figs 5-7
+- depositional_environments_generation_rules.pdf — Appendix (PSD/anisotropy)
+- depositional_environments_overview.pdf — Classification criteria
+
+Key Empirical Relationships:
+- Leopold & Wolman (1960): λ = 10-14 × W
+- Williams (1986): R_c = 2-3 × W
+- Parker (1976): W/d threshold for braiding
+- Nanson & Knighton (1996): Anastomosing classification
+
+================================================================================
+8. OUT OF SCOPE
+================================================================================
+
+- Time-evolution / morphodynamic simulation (static snapshots only)
+- 3D stratigraphy (2D plan view only)
+- Hydrodynamic flow modeling
+- Sediment transport equations
+- Aeolian environments (separate PRD)
+- Estuarine environments (separate PRD)
+
+================================================================================
+9. SUCCESS METRICS
+================================================================================
+
+Qualitative:
+- Generated images are immediately recognizable as the correct fluvial style
+- Point bars visible on inner bends of meandering rivers
+- Braided rivers show branching/merging pattern
+- Oxbows have meander loop shapes
+
+Quantitative:
+- 100% of meandering images pass wavelength validation (10-14× W)
+- 100% of meandering images have point bars on inner bends
+- 100% of oxbows at valid cutoff locations
+- 100% of braided images show channel splitting
+- β_iso within documented target bands (existing metric)
+
+================================================================================
+10. APPENDIX: TEMPLATE FOR AEOLIAN/ESTUARINE PRDs
+================================================================================
+
+This PRD establishes the pattern for future environment PRDs:
+
+A. Extract ALL quantitative formulas from research documents
+B. Make formulas MANDATORY constraints, not just documentation
+C. Specify ALGORITHM pseudocode for each function
+D. Define VALIDATION criteria for each constraint
+E. Identify MISSING features (like point bars were missing)
+F. Preserve working infrastructure (UI, stats, reporting)
+
+For aeolian-realism-v1:
+- Extract dune spacing, height, crest orientation formulas
+- Identify missing features (slipface asymmetry, etc.)
+- Define validation criteria
+
+For estuarine-realism-v1:
+- Extract channel geometry, bar dimensions, tidal prism relationships
+- Identify missing features
+- Define validation criteria
+
+================================================================================
+END OF PRD
+================================================================================
