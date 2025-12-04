@@ -1,5 +1,9 @@
 # Codex CLI + Task Master AI Integration — Complete Setup and Workflow Guide
 
+> **⚠️ DEPRECATED**: This document describes the legacy Codex CLI integration.
+> The project has migrated to **Claude Code**. See `CLAUDE.md` for current project context.
+> This file is retained for historical reference only.
+
 **Scope**: From zero to fully operational Codex-powered Task Master on WSL, with interactive development, batch task management, and comprehensive reporting capabilities.
 
 ---
