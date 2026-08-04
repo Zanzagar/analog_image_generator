@@ -227,12 +227,22 @@ def two_segment_fit(lags: Array, gamma: Array) -> dict[str, float]:
 
 
 def entropy(gray: Array) -> float:
-    """Global Shannon entropy of grayscale values."""
+    """Global Shannon entropy of grayscale values.
+
+    Discrete Shannon entropy over a 64-bin histogram of counts: probabilities
+    p_i = n_i / N, H = -sum(p_i * log2(p_i)), bounded [0, log2(64)] = [0, 6]
+    bits. (A prior density-based version treated per-binwidth densities as
+    probabilities, yielding 0.0 for uniform images and negative values for
+    concentrated histograms.)
+    """
 
     arr = np.asarray(gray, dtype=np.float32)
-    hist, _ = np.histogram(arr, bins=64, range=(0.0, 1.0), density=True)
-    hist = hist[hist > 0]
-    return float(-np.sum(hist * np.log2(hist + 1e-12)))
+    hist, _ = np.histogram(arr, bins=64, range=(0.0, 1.0), density=False)
+    total = hist.sum()
+    if total == 0:
+        return 0.0
+    p = hist[hist > 0] / total
+    return float(-np.sum(p * np.log2(p)))
 
 
 def fractal_dimension(beta: float) -> float:

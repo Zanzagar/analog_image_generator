@@ -10,6 +10,9 @@ Covers:
    the mean in place on an np.asarray alias of the input)
 7. metadata_hash is insensitive to numpy scalar/array types (np.int64(0)
    previously serialized via default=str as "0" while native 0 was a number)
+8. entropy is counts-based discrete Shannon entropy in [0, 6] bits for 64
+   bins (was density-based: uniform gave 0.0 and concentrated histograms
+   went negative)
 """
 
 from __future__ import annotations
@@ -317,6 +320,56 @@ def test_metadata_hash_still_differs_for_different_numpy_content():
     row_a = stats._flatten_metrics(_metric_result(), "fluvial", {"seed": np.int64(42)})
     row_b = stats._flatten_metrics(_metric_result(), "fluvial", {"seed": np.int64(43)})
     assert row_a["metadata_hash"] != row_b["metadata_hash"]
+
+
+# ---------------------------------------------------------------------------
+# Fix 8: entropy = counts-based discrete Shannon entropy, bounded [0, 6] bits
+# ---------------------------------------------------------------------------
+
+
+def test_entropy_uniform_image_near_six_bits():
+    # A finite ramp over [0, 1) fills all 64 bins equally: H = log2(64) = 6.
+    gray = np.linspace(0.0, 1.0, 64 * 64, endpoint=False, dtype=np.float32).reshape(64, 64)
+    assert stats.entropy(gray) == pytest.approx(6.0, abs=0.1)
+
+
+def test_entropy_large_uniform_sample_near_six_bits():
+    rng = np.random.default_rng(42)
+    gray = rng.uniform(0.0, 1.0, size=(256, 256)).astype(np.float32)
+    assert stats.entropy(gray) == pytest.approx(6.0, abs=0.1)
+
+
+def test_entropy_constant_image_exactly_zero():
+    gray = np.full((64, 64), 0.5, dtype=np.float32)
+    assert stats.entropy(gray) == 0.0
+
+
+def test_entropy_two_value_image_one_bit():
+    gray = np.full((64, 64), 0.1, dtype=np.float32)
+    gray[:, 32:] = 0.9
+    assert stats.entropy(gray) == pytest.approx(1.0, abs=1e-6)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 7, 123])
+def test_entropy_bounded_zero_to_six_bits(seed):
+    rng = np.random.default_rng(seed)
+    candidates = [
+        rng.uniform(0.0, 1.0, size=(64, 64)),
+        np.clip(rng.normal(0.5, 0.01, size=(64, 64)), 0.0, 1.0 - 1e-6),
+        np.clip(rng.beta(0.5, 0.5, size=(64, 64)), 0.0, 1.0 - 1e-6),
+    ]
+    for gray in candidates:
+        value = stats.entropy(gray.astype(np.float32))
+        assert 0.0 <= value <= 6.0
+        assert value >= 0.0
+
+
+def test_entropy_monotone_multi_level_at_least_constant():
+    constant = np.full((64, 64), 0.3, dtype=np.float32)
+    rng = np.random.default_rng(11)
+    noisy = rng.choice([0.1, 0.35, 0.6, 0.85], size=(64, 64)).astype(np.float32)
+    assert stats.entropy(noisy) >= stats.entropy(constant)
+    assert stats.entropy(noisy) > 0.0
 
 
 def test_metadata_hash_stable_across_processes():
