@@ -32,6 +32,11 @@ class MetricResult:
     anisotropy_ratio: float
     topology: dict[str, float]
     qa_flags: dict[str, bool]
+    # Additive flag from two_segment_fit: True when the crossover h0 was
+    # pathological (non-finite / near-equal slopes / outside the lag range)
+    # and was replaced by the fitted breakpoint lag. Defaults to False so
+    # pre-flag constructors remain valid.
+    h0_capped: bool = False
 
 
 _DIRECTIONS = {
@@ -79,6 +84,7 @@ def compute_metrics(
         beta_seg1=seg["beta_seg1"],
         beta_seg2=seg["beta_seg2"],
         h0=seg["h0"],
+        h0_capped=bool(seg["h0_capped"]),
         entropy_global=entropy_val,
         fractal_dimension=fractal,
         psd_aspect=psd["aspect_ratio"],
@@ -342,6 +348,7 @@ def _flatten_metrics(metrics: MetricResult, env: str, metadata: Mapping) -> dict
         "beta_seg1": metrics.beta_seg1,
         "beta_seg2": metrics.beta_seg2,
         "h0": metrics.h0,
+        "h0_capped": bool(metrics.h0_capped),
         "psd_aspect": metrics.psd_aspect,
         "psd_theta": metrics.psd_theta,
         "anisotropy_ratio": metrics.anisotropy_ratio,

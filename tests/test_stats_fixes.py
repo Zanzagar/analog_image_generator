@@ -18,6 +18,11 @@ Covers:
    River-I 7/9-facies reference tables); pathological h0 is now capped to
    the fitted breakpoint lag and flagged via the additive h0_capped key,
    while sane fits stay byte-identical
+10. the h0_capped flag from two_segment_fit was dropped by compute_metrics
+    (only beta_seg1/beta_seg2/h0 were mapped into MetricResult), so
+    flattened metric rows could not distinguish capped h0 values from
+    coincidental ones; the flag now propagates as an additive h0_capped
+    key in the flattened row, with every previously-emitted key unchanged
 """
 
 from __future__ import annotations
@@ -454,7 +459,6 @@ def test_h0_always_finite_and_within_lag_range(seed):
     assert lags.min() <= seg["h0"] <= lags.max()
     assert isinstance(seg["h0_capped"], bool)
 
-
 def test_metadata_hash_stable_across_processes():
     meta = {"seed": 42, "style": "meandering", "nested": {"b": 2, "a": 1}}
     local = stats._flatten_metrics(_metric_result(), "fluvial", meta)["metadata_hash"]
@@ -474,3 +478,95 @@ def test_metadata_hash_stable_across_processes():
         check=True,
     )
     assert proc.stdout.strip() == local
+
+
+# ---------------------------------------------------------------------------
+# Fix 10: h0_capped propagates through compute_metrics into flattened rows
+# ---------------------------------------------------------------------------
+
+
+def _white_noise(seed: int = 1, size: int = 96) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    return rng.uniform(0.0, 1.0, size=(size, size)).astype(np.float32)
+
+
+def _topology_masks(size: int = 96) -> dict[str, np.ndarray]:
+    return {"channel": _circle_mask(size, 30), "floodplain": _rect_mask(size, 20, 60)}
+
+
+def _isotropic_seg(gray: np.ndarray) -> dict:
+    variogram = stats.compute_variogram(gray, stats._DIRECTIONS)["isotropic"]
+    return stats.two_segment_fit(variogram["lags"], variogram["semivariances"])
+
+
+def test_flattened_row_h0_capped_true_for_pathological_series():
+    # White noise: near-flat variogram, near-equal segment slopes, so the
+    # crossover h0 is pathological and two_segment_fit caps it. The flag
+    # must survive into the flattened compute_metrics row.
+    gray = _white_noise(seed=1)
+    assert _isotropic_seg(gray)["h0_capped"] is True  # fixture sanity
+    row = stats.compute_metrics(gray, _topology_masks(), "fluvial")
+    assert "h0_capped" in row
+    assert row["h0_capped"] is True
+
+
+def test_flattened_row_h0_capped_false_for_sane_series():
+    gray = _smoothed_noise(seed=7)
+    assert _isotropic_seg(gray)["h0_capped"] is False  # fixture sanity
+    row = stats.compute_metrics(gray, _topology_masks(), "fluvial")
+    assert "h0_capped" in row
+    assert row["h0_capped"] is False
+
+
+def test_flattened_row_h0_capped_is_python_bool():
+    # CSV/JSON serialization must see a native bool, not np.bool_.
+    for gray in (_white_noise(seed=1), _smoothed_noise(seed=7)):
+        row = stats.compute_metrics(gray, _topology_masks(), "fluvial")
+        assert isinstance(row["h0_capped"], bool)
+
+
+def test_flattened_row_previous_keys_and_values_unchanged():
+    # The flag is strictly additive: the flattened row keeps exactly the
+    # previously-emitted key set plus h0_capped, and the seg-fit values
+    # match the direct two_segment_fit output bit-for-bit.
+    gray = _smoothed_noise(seed=7)
+    row = stats.compute_metrics(gray, _topology_masks(), "fluvial", metadata={"seed": 7})
+    seg = _isotropic_seg(gray)
+    assert row["beta_seg1"] == seg["beta_seg1"]
+    assert row["beta_seg2"] == seg["beta_seg2"]
+    assert row["h0"] == seg["h0"]
+
+    baseline_keys = {
+        "env",
+        "beta_iso",
+        "entropy_global",
+        "fractal_dimension",
+        "beta_seg1",
+        "beta_seg2",
+        "h0",
+        "psd_aspect",
+        "psd_theta",
+        "anisotropy_ratio",
+        "metadata_hash",
+    }
+    baseline_keys |= {f"beta_dir_{angle}" for angle in (0, 45, 90, 135)}
+    baseline_keys |= {
+        f"topology_{label}_{field}"
+        for label in ("channel", "floodplain", "levee")
+        for field in (
+            "area_fraction",
+            "compactness",
+            "component_count",
+            "largest_component_ratio",
+            "connectivity",
+        )
+    }
+    baseline_keys |= {"qa_psd_anisotropy_warning", "qa_channel_area_warning"}
+    assert set(row) == baseline_keys | {"h0_capped"}
+
+
+def test_flatten_metrics_defaults_h0_capped_false():
+    # MetricResult constructors that predate the flag (no h0_capped argument)
+    # must still flatten, with the additive key defaulting to False.
+    row = stats._flatten_metrics(_metric_result(), "fluvial", {})
+    assert row["h0_capped"] is False
