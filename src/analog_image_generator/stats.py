@@ -180,13 +180,20 @@ def fit_power_law(lags: Array, gamma: Array) -> tuple[float, float]:
     return float(slope), float(intercept)
 
 
-def two_segment_fit(lags: Array, gamma: Array) -> dict[str, float]:
+def two_segment_fit(lags: Array, gamma: Array) -> dict[str, float | bool]:
     """Fit two linear segments to the log-log variogram.
 
     The breakpoint is optimized by grid search over interior split indices
     (>= 3 points per segment), minimizing the total SSE of the two log-log
     linear fits. Falls back to a single power-law fit when fewer than six
     valid points are available.
+
+    The crossover ``h0 = exp((b2-b1)/(beta1-beta2))`` diverges when the two
+    segment slopes are nearly equal (observed h0 ~1e186 on near-single-slope
+    variograms). Pathological values — non-finite h0, |beta1-beta2| < 1e-6,
+    or h0 outside [lags.min(), lags.max()] — are replaced by the fitted
+    breakpoint lag and flagged with the additive ``h0_capped`` key; sane
+    fits are returned bit-identical to the unguarded computation.
     """
 
     lags = np.asarray(lags, dtype=np.float32)
@@ -194,11 +201,15 @@ def two_segment_fit(lags: Array, gamma: Array) -> dict[str, float]:
     mask = (lags > 0) & (gamma > 0)
     if mask.sum() < 6:
         beta, intercept = fit_power_law(lags, gamma)
+        h0 = float(np.exp(intercept))
+        breakpoint_lag = float(lags[mask][-1]) if mask.any() else 0.0
+        h0_capped = not np.isfinite(h0)
         return {
             "beta_seg1": beta,
             "beta_seg2": beta,
-            "h0": float(np.exp(intercept)),
-            "breakpoint_lag": float(lags[mask][-1]) if mask.any() else 0.0,
+            "h0": breakpoint_lag if h0_capped else h0,
+            "breakpoint_lag": breakpoint_lag,
+            "h0_capped": bool(h0_capped),
         }
     lags = lags[mask]
     gamma = gamma[mask]
@@ -217,12 +228,19 @@ def two_segment_fit(lags: Array, gamma: Array) -> dict[str, float]:
             best_sse = sse
             best = (float(beta1), float(b1), float(beta2), float(b2), split)
     beta1, b1, beta2, b2, split = best
-    h0 = np.exp((b2 - b1) / (beta1 - beta2 + 1e-6))
+    h0 = float(np.exp((b2 - b1) / (beta1 - beta2 + 1e-6)))
+    breakpoint_lag = float(lags[split - 1])
+    h0_capped = (
+        not np.isfinite(h0)
+        or abs(beta1 - beta2) < 1e-6
+        or not (float(lags.min()) <= h0 <= float(lags.max()))
+    )
     return {
         "beta_seg1": beta1,
         "beta_seg2": beta2,
-        "h0": float(h0),
-        "breakpoint_lag": float(lags[split - 1]),
+        "h0": breakpoint_lag if h0_capped else h0,
+        "breakpoint_lag": breakpoint_lag,
+        "h0_capped": bool(h0_capped),
     }
 
 

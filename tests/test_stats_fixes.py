@@ -13,6 +13,11 @@ Covers:
 8. entropy is counts-based discrete Shannon entropy in [0, 6] bits for 64
    bins (was density-based: uniform gave 0.0 and concentrated histograms
    went negative)
+9. two_segment_fit crossover h0 = exp((b2-b1)/(beta1-beta2)) diverges when
+   the two segment slopes are nearly equal (observed h0 ~1e186 in GAN
+   River-I 7/9-facies reference tables); pathological h0 is now capped to
+   the fitted breakpoint lag and flagged via the additive h0_capped key,
+   while sane fits stay byte-identical
 """
 
 from __future__ import annotations
@@ -370,6 +375,84 @@ def test_entropy_monotone_multi_level_at_least_constant():
     noisy = rng.choice([0.1, 0.35, 0.6, 0.85], size=(64, 64)).astype(np.float32)
     assert stats.entropy(noisy) >= stats.entropy(constant)
     assert stats.entropy(noisy) > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Fix 9: two_segment_fit crossover h0 must not explode for near-equal slopes
+# ---------------------------------------------------------------------------
+
+
+def _piecewise_gamma(lags: np.ndarray, b1: float, b2: float, h_break: float) -> np.ndarray:
+    return np.where(
+        lags <= h_break,
+        lags**b1,
+        (h_break**b1) * (lags / h_break) ** b2,
+    ).astype(np.float32)
+
+
+def test_h0_capped_for_near_equal_slopes_single_power_law():
+    # A pure power law forced through the two-segment path: both segment
+    # slopes come out ~0.7, so the crossover exponent is 0/0-shaped garbage
+    # (previously h0 = 0.043, far outside the lag range [1, 24]).
+    lags = np.arange(1, 25, dtype=np.float32)
+    gamma = (lags**0.7).astype(np.float32)
+    seg = stats.two_segment_fit(lags, gamma)
+    assert "h0_capped" in seg
+    assert seg["h0_capped"] is True
+    assert np.isfinite(seg["h0"])
+    assert lags.min() <= seg["h0"] <= lags.max()
+    # capped value is the fitted breakpoint lag
+    assert seg["h0"] == seg["breakpoint_lag"]
+
+
+def test_h0_unchanged_for_genuine_two_segment_series():
+    # Reuses the Fix-4 breakpoint-recovery fixtures. Sane fits must be
+    # byte-identical to pre-guard behavior (values pinned from the current
+    # implementation: exp((b2-b1)/(beta1-beta2+1e-6)) in float64).
+    lags = np.arange(1, 25, dtype=np.float32)
+
+    seg = stats.two_segment_fit(lags, _piecewise_gamma(lags, 0.9, 0.2, 8.0))
+    assert seg["h0"] == 7.999976586006721
+    assert seg["h0_capped"] is False
+
+    seg = stats.two_segment_fit(lags, _piecewise_gamma(lags, 1.2, 0.1, 5.0))
+    assert seg["h0"] == 4.999992706459131
+    assert seg["h0_capped"] is False
+
+
+def test_h0_capped_key_present_in_short_series_fallback():
+    lags = np.asarray([1.0, 2.0, 3.0], dtype=np.float32)
+    gamma = (lags**0.5).astype(np.float32)
+    seg = stats.two_segment_fit(lags, gamma)
+    assert "h0_capped" in seg
+    # finite fallback h0 (= exp(intercept)) is left untouched
+    assert seg["h0_capped"] is False
+    assert seg["h0"] == pytest.approx(1.0, abs=0.05)
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_h0_always_finite_and_within_lag_range(seed):
+    # Battery of seeded random gamma curves, including near-flat and
+    # noisy-single-slope families that previously drove h0 to ~1e186/inf.
+    rng = np.random.default_rng(seed)
+    lags = np.arange(1, 25, dtype=np.float32)
+    amp = float(np.exp(rng.uniform(-3.0, 3.0)))
+    beta = float(rng.uniform(0.0, 1.5))
+    family = seed % 4
+    if family == 0:
+        gamma = amp * lags**beta
+    elif family == 1:
+        gamma = amp * lags**beta * np.exp(rng.normal(0.0, 0.05, size=lags.size))
+    elif family == 2:
+        gamma = amp * (1.0 + 0.01 * rng.uniform(-1.0, 1.0, size=lags.size))
+    else:
+        h_break = float(rng.uniform(3.0, 20.0))
+        b2 = float(rng.uniform(0.0, 1.5))
+        gamma = amp * _piecewise_gamma(lags, beta, b2, h_break)
+    seg = stats.two_segment_fit(lags, gamma.astype(np.float32))
+    assert np.isfinite(seg["h0"])
+    assert lags.min() <= seg["h0"] <= lags.max()
+    assert isinstance(seg["h0_capped"], bool)
 
 
 def test_metadata_hash_stable_across_processes():
