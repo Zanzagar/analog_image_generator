@@ -246,7 +246,9 @@ def fractal_dimension(beta: float) -> float:
 def psd_anisotropy(gray: Array) -> dict[str, float]:
     """Estimate PSD anisotropy via second-moment ellipse in frequency space."""
 
-    arr = np.asarray(gray, dtype=np.float32)
+    # np.array (not asarray) so the in-place mean subtraction below cannot
+    # mutate the caller's array when the input is already float32.
+    arr = np.array(gray, dtype=np.float32)
     arr -= float(arr.mean())
     spectrum = np.fft.fftshift(np.abs(np.fft.fft2(arr)) ** 2)
     height, width = spectrum.shape
@@ -284,6 +286,25 @@ def topology_metrics(masks: Mapping[str, Array | dict]) -> dict[str, float]:
     return result
 
 
+def _canonicalize_metadata(value):
+    """Recursively convert numpy scalars/arrays to native Python types.
+
+    Applied before hashing so semantically identical metadata hashes the same
+    regardless of numpy vs native types (np.int64(0) previously serialized via
+    ``default=str`` as ``"0"`` while native 0 serialized as a bare number).
+    """
+
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, Mapping):
+        return {_canonicalize_metadata(k): _canonicalize_metadata(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_canonicalize_metadata(item) for item in value]
+    return value
+
+
 def _flatten_metrics(metrics: MetricResult, env: str, metadata: Mapping) -> dict:
     result: dict[str, float | int | str | bool] = {
         "env": env,
@@ -302,7 +323,7 @@ def _flatten_metrics(metrics: MetricResult, env: str, metadata: Mapping) -> dict
     result.update({f"topology_{k}": v for k, v in metrics.topology.items()})
     result.update({f"qa_{k}": v for k, v in metrics.qa_flags.items()})
     if metadata:
-        payload = json.dumps(dict(metadata), sort_keys=True, default=str)
+        payload = json.dumps(_canonicalize_metadata(dict(metadata)), sort_keys=True, default=str)
         result["metadata_hash"] = hashlib.blake2b(payload.encode("utf-8"), digest_size=16).hexdigest()
         if "stacked_packages" in metadata:
             result["stacked_package_count"] = metadata["stacked_packages"]["stack_statistics"]["package_count"]

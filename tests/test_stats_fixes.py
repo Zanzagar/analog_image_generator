@@ -1,4 +1,4 @@
-"""Regression tests for five documented defects in stats.py.
+"""Regression tests for documented defects in stats.py.
 
 Covers:
 1. compactness = 4*pi*A/P^2 (was area/perimeter)
@@ -6,6 +6,10 @@ Covers:
 3. anisotropy_ratio = max/min of directional variogram slopes (was PSD aspect)
 4. two_segment_fit optimizes the breakpoint (was fixed midpoint split)
 5. metadata_hash is a deterministic digest (was salted builtin hash())
+6. public functions must not mutate caller arrays (psd_anisotropy subtracted
+   the mean in place on an np.asarray alias of the input)
+7. metadata_hash is insensitive to numpy scalar/array types (np.int64(0)
+   previously serialized via default=str as "0" while native 0 was a number)
 """
 
 from __future__ import annotations
@@ -238,6 +242,80 @@ def test_metadata_hash_insensitive_to_insertion_order():
 def test_metadata_hash_differs_for_different_content():
     row_a = stats._flatten_metrics(_metric_result(), "fluvial", {"seed": 42})
     row_b = stats._flatten_metrics(_metric_result(), "fluvial", {"seed": 43})
+    assert row_a["metadata_hash"] != row_b["metadata_hash"]
+
+
+# ---------------------------------------------------------------------------
+# Fix 6: public functions must not mutate caller arrays
+# ---------------------------------------------------------------------------
+
+
+def test_psd_anisotropy_does_not_mutate_input():
+    gray = _smoothed_noise(seed=3)  # float32, so np.asarray would alias it
+    original = gray.copy()
+    stats.psd_anisotropy(gray)
+    assert gray.tobytes() == original.tobytes()
+
+
+def test_compute_metrics_does_not_mutate_input():
+    gray = _smoothed_noise(seed=5)
+    masks = {"channel": _circle_mask(96, 30), "floodplain": _rect_mask(96, 20, 60)}
+    original_gray = gray.tobytes()
+    original_masks = {k: v.tobytes() for k, v in masks.items()}
+    stats.compute_metrics(gray, masks, "fluvial")
+    assert gray.tobytes() == original_gray
+    for key, mask in masks.items():
+        assert mask.tobytes() == original_masks[key]
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        stats.entropy,
+        lambda arr: stats.compute_variogram(arr, {"dir_0": (0, 1)}, max_lag=8),
+        lambda arr: stats.preview_metrics(arr, {"channel": _circle_mask(96, 30)}, "fluvial"),
+    ],
+    ids=["entropy", "compute_variogram", "preview_metrics"],
+)
+def test_array_consuming_functions_do_not_mutate_input(func):
+    gray = _smoothed_noise(seed=9)
+    original = gray.tobytes()
+    func(gray)
+    assert gray.tobytes() == original
+
+
+# ---------------------------------------------------------------------------
+# Fix 7: metadata_hash insensitive to numpy scalar/array types
+# ---------------------------------------------------------------------------
+
+
+def test_metadata_hash_numpy_scalars_match_native_types():
+    meta_np = {"seed": np.int64(42), "scale": np.float64(1.5), "flag": np.bool_(True)}
+    meta_native = {"seed": 42, "scale": 1.5, "flag": True}
+    row_np = stats._flatten_metrics(_metric_result(), "fluvial", meta_np)
+    row_native = stats._flatten_metrics(_metric_result(), "fluvial", meta_native)
+    assert row_np["metadata_hash"] == row_native["metadata_hash"]
+
+
+def test_metadata_hash_numpy_types_in_nested_structures():
+    meta_np = {
+        "seed": np.int32(0),
+        "nested": {"count": np.int64(7), "levels": [np.float64(0.25), np.float64(0.75)]},
+        "shape": np.asarray([128, 128], dtype=np.int64),
+    }
+    meta_native = {
+        "seed": 0,
+        "nested": {"count": 7, "levels": [0.25, 0.75]},
+        "shape": [128, 128],
+    }
+    row_np = stats._flatten_metrics(_metric_result(), "fluvial", meta_np)
+    row_native = stats._flatten_metrics(_metric_result(), "fluvial", meta_native)
+    assert row_np["metadata_hash"] == row_native["metadata_hash"]
+
+
+def test_metadata_hash_still_differs_for_different_numpy_content():
+    row_a = stats._flatten_metrics(_metric_result(), "fluvial", {"seed": np.int64(42)})
+    row_b = stats._flatten_metrics(_metric_result(), "fluvial", {"seed": np.int64(43)})
     assert row_a["metadata_hash"] != row_b["metadata_hash"]
 
 
