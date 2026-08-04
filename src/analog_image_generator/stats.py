@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
@@ -67,6 +69,7 @@ def compute_metrics(
     entropy_val = entropy(gray)
     fractal = fractal_dimension(beta_iso)
     psd = psd_anisotropy(gray)
+    anisotropy = _directional_anisotropy_ratio(beta_dir)
     topology = topology_metrics(masks)
     qa_flags = _qa_flags(env_key, psd, topology)
 
@@ -80,7 +83,7 @@ def compute_metrics(
         fractal_dimension=fractal,
         psd_aspect=psd["aspect_ratio"],
         psd_theta=psd["theta_deg"],
-        anisotropy_ratio=psd["aspect_ratio"],
+        anisotropy_ratio=anisotropy,
         topology=topology,
         qa_flags=qa_flags,
     )
@@ -150,6 +153,19 @@ def compute_variogram(
     return series
 
 
+def _directional_anisotropy_ratio(beta_dir: Mapping[str, float]) -> float:
+    """PRD glossary: anisotropy ratio = max(beta_dir) / min(beta_dir)."""
+
+    values = [float(v) for v in beta_dir.values()]
+    if not values:
+        return 0.0
+    min_beta = min(values)
+    max_beta = max(values)
+    if abs(min_beta) < 1e-12:
+        return 0.0
+    return float(max_beta / min_beta)
+
+
 def fit_power_law(lags: Array, gamma: Array) -> tuple[float, float]:
     """Fit log γ = a + β log h; returns β and intercept."""
 
@@ -165,21 +181,49 @@ def fit_power_law(lags: Array, gamma: Array) -> tuple[float, float]:
 
 
 def two_segment_fit(lags: Array, gamma: Array) -> dict[str, float]:
-    """Fit two linear segments to the log-log variogram."""
+    """Fit two linear segments to the log-log variogram.
+
+    The breakpoint is optimized by grid search over interior split indices
+    (>= 3 points per segment), minimizing the total SSE of the two log-log
+    linear fits. Falls back to a single power-law fit when fewer than six
+    valid points are available.
+    """
 
     lags = np.asarray(lags, dtype=np.float32)
     gamma = np.asarray(gamma, dtype=np.float32)
     mask = (lags > 0) & (gamma > 0)
-    if mask.sum() < 4:
+    if mask.sum() < 6:
         beta, intercept = fit_power_law(lags, gamma)
-        return {"beta_seg1": beta, "beta_seg2": beta, "h0": np.exp(intercept)}
+        return {
+            "beta_seg1": beta,
+            "beta_seg2": beta,
+            "h0": float(np.exp(intercept)),
+            "breakpoint_lag": float(lags[mask][-1]) if mask.any() else 0.0,
+        }
     lags = lags[mask]
     gamma = gamma[mask]
-    split = len(lags) // 2
-    beta1, b1 = fit_power_law(lags[:split], gamma[:split])
-    beta2, b2 = fit_power_law(lags[split:], gamma[split:])
+    x = np.log(lags)
+    y = np.log(gamma)
+    n = len(lags)
+    best_sse = np.inf
+    best = (0.0, 0.0, 0.0, 0.0, 3)
+    for split in range(3, n - 2):
+        beta1, b1 = np.polyfit(x[:split], y[:split], 1)
+        beta2, b2 = np.polyfit(x[split:], y[split:], 1)
+        residual1 = y[:split] - (b1 + beta1 * x[:split])
+        residual2 = y[split:] - (b2 + beta2 * x[split:])
+        sse = float(residual1 @ residual1 + residual2 @ residual2)
+        if sse < best_sse:
+            best_sse = sse
+            best = (float(beta1), float(b1), float(beta2), float(b2), split)
+    beta1, b1, beta2, b2, split = best
     h0 = np.exp((b2 - b1) / (beta1 - beta2 + 1e-6))
-    return {"beta_seg1": beta1, "beta_seg2": beta2, "h0": float(h0)}
+    return {
+        "beta_seg1": beta1,
+        "beta_seg2": beta2,
+        "h0": float(h0),
+        "breakpoint_lag": float(lags[split - 1]),
+    }
 
 
 def entropy(gray: Array) -> float:
@@ -258,7 +302,8 @@ def _flatten_metrics(metrics: MetricResult, env: str, metadata: Mapping) -> dict
     result.update({f"topology_{k}": v for k, v in metrics.topology.items()})
     result.update({f"qa_{k}": v for k, v in metrics.qa_flags.items()})
     if metadata:
-        result["metadata_hash"] = hash(str(sorted(metadata.items())))
+        payload = json.dumps(dict(metadata), sort_keys=True, default=str)
+        result["metadata_hash"] = hashlib.blake2b(payload.encode("utf-8"), digest_size=16).hexdigest()
         if "stacked_packages" in metadata:
             result["stacked_package_count"] = metadata["stacked_packages"]["stack_statistics"]["package_count"]
     return result
@@ -289,23 +334,60 @@ def _get_mask(masks: Mapping[str, Array | dict], keys: Sequence[str]) -> Array:
 
 
 def _area_compactness(label: str, mask: Array) -> dict[str, float]:
-    area = float(mask.mean())
-    grad_y = np.abs(np.diff(mask, axis=0, prepend=0.0))
-    grad_x = np.abs(np.diff(mask, axis=1, prepend=0.0))
-    perimeter = float((grad_x + grad_y).sum()) + 1e-6
-    compactness = float(area / perimeter)
+    area_fraction = float(mask.mean())
+    binary = np.asarray(mask, dtype=np.float32) > 0.2
+    area = float(binary.sum())
+    # Count boundary edge crossings (including image borders via padding) and
+    # apply the pi/4 digital-perimeter correction so a rasterized circle has
+    # P ~ 2*pi*r, making the isoperimetric compactness 4*pi*A/P^2 ~ 1.0.
+    padded = np.pad(binary.astype(np.float32), 1, mode="constant")
+    edges = float(np.abs(np.diff(padded, axis=0)).sum() + np.abs(np.diff(padded, axis=1)).sum())
+    perimeter = edges * (np.pi / 4.0)
+    if perimeter <= 0.0 or area <= 0.0:
+        compactness = 0.0
+    else:
+        compactness = float(4.0 * np.pi * area / (perimeter**2))
     return {
-        f"{label}_area_fraction": area,
+        f"{label}_area_fraction": area_fraction,
         f"{label}_compactness": compactness,
     }
 
 
 def _connectivity(label: str, mask: Array) -> dict[str, float]:
     struct = np.ones((3, 3))
-    labeled, count = ndimage.label(mask > 0.2, structure=struct)
+    binary = mask > 0.2
+    labeled, count = ndimage.label(binary, structure=struct)
     largest = np.max(ndimage.sum(mask, labeled, index=range(1, count + 1))) if count else 0.0
     ratio = float(largest / (mask.sum() + 1e-6))
+    area = float(binary.sum())
+    if area > 0.0:
+        chi = float(count - _hole_count(binary))
+        connectivity = float(1.0 - chi / area)
+    else:
+        connectivity = 0.0
     return {
         f"{label}_component_count": float(count),
         f"{label}_largest_component_ratio": ratio,
+        f"{label}_connectivity": connectivity,
     }
+
+
+def _hole_count(binary: NDArray[np.bool_]) -> int:
+    """Count enclosed background regions (holes) for the Euler characteristic.
+
+    The complement is labeled with 4-connectivity (dual of the 8-connected
+    foreground); components that touch the image border are open background,
+    the rest are holes.
+    """
+
+    struct = ndimage.generate_binary_structure(2, 1)
+    labeled_bg, bg_count = ndimage.label(~binary, structure=struct)
+    if bg_count == 0:
+        return 0
+    border_labels = np.unique(
+        np.concatenate(
+            [labeled_bg[0, :], labeled_bg[-1, :], labeled_bg[:, 0], labeled_bg[:, -1]]
+        )
+    )
+    border_labels = border_labels[border_labels > 0]
+    return int(bg_count - border_labels.size)
