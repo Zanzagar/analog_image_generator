@@ -47,30 +47,13 @@ python scripts/smoke_test.py
 # Launches ui.build_live_fluvial_panel(...)
 ```
 
-## Taskmaster Workflows
+## Task Tracking
 
-```bash
-# List tasks for a tag
-task-master list --tag <tag> --with-subtasks
-
-# Show specific task
-task-master show <id>
-
-# Update task status
-task-master set-status --id <id> --status=<status> --tag <tag>
-
-# Switch tags
-task-master use-tag <tag>
-
-# Expand a task into subtasks
-task-master expand --id=<id> --tag <tag>
-
-# Parse PRD to generate tasks
-task-master parse-prd <prdfile> --tag <tag> [--num-tasks N --research]
-```
+Task-master is retired. Pending tasks were exported to `tasks.md` at the repo root (grouped by tag); `.taskmaster/` remains as an inert archive.
 
 **Active Tags**:
-- `fluvial-v1` (current) - Advanced controls/QA work
+- `fluvial-realism-v2` (current) - Physics-based fluvial realism (research-enabled)
+- `fluvial-v1` - Advanced controls/QA work
 - `fluvial-v1-demo` (completed) - Demo preparation
 - `aeolian-v1`, `estuarine-v1` - Future environments
 
@@ -118,7 +101,6 @@ Variogram β/H/D, PSD anisotropy, topology analysis
 - **Variogram plot**: Now uses linear axes; still fits β/D
 - **ipywidgets**: Must be enabled in notebooks (version 8.1.8)
 - **Notebooks tracked**: Clear heavy outputs before commit if needed
-- **Taskmaster models**: Ensure provider updated before expand/parse operations
 
 ## Ongoing Work (fluvial-v1)
 
@@ -143,12 +125,18 @@ Variogram β/H/D, PSD anisotropy, topology analysis
 ### Daily Loop
 1. Edit PRDs; update GEOLOGIC_RULES anchors
 2. Pre-commit run; small PR
-3. Work next Taskmaster task
+3. Work the next pending task in `tasks.md`
 
 ### Release Loop
 1. Smoke + CI green; CHANGELOG entry added
 2. PR with artifacts (CSV/PDF/figures) and PRD references
 3. Review + merge; tag release if applicable
+
+## AI Assistant Instructions
+
+Always use context7 when I need code generation, setup or configuration steps, or
+library/API documentation. This means you should automatically use the Context7 MCP
+tools to resolve library id and get library docs without me having to explicitly ask.
 
 ## Related Documentation
 
@@ -159,7 +147,3 @@ Variogram β/H/D, PSD anisotropy, topology analysis
 - `docs/MCP_SETUP.md` - MCP server setup (Task Master, Context7, GitHub)
 - `docs/rules/` - Git workflow, Python standards, self-improvement rules
 - `AGENTS.md` - (Legacy) Codex CLI setup guide, retained for reference
-
-## Template Sync
-
-This project uses the [project-template](https://github.com/Zanzagar/project-template). Run `bash scripts/sync-template.sh --all` to pull updates.
