@@ -1,7 +1,0 @@
-black
-isort
-ruff
-pre-commit
-pytest
-nbstripout
-build
