@@ -13,7 +13,39 @@
       "Write(**/.env*)",
       "Write(**/*.pem)",
       "Write(**/*.key)",
-      "Write(**/credentials*)"
+      "Write(**/credentials*)",
+      "Bash(git push * main)",
+      "Bash(git push * master)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git branch -D main)",
+      "Bash(git branch -D master)",
+      "Bash(git commit --no-verify *)",
+      "Bash(git commit * --no-verify)",
+      "Bash(git commit * --no-verify *)",
+      "Bash(git commit -n *)",
+      "Bash(git commit * -n)",
+      "Bash(git commit * -n *)",
+      "Bash(git * commit --no-verify *)",
+      "Bash(git * commit * --no-verify)",
+      "Bash(git * commit * --no-verify *)",
+      "Bash(git * commit -n *)",
+      "Bash(git * commit * -n)",
+      "Bash(git * commit * -n *)"
+    ],
+    "ask": [
+      "Workflow",
+      "Bash(git commit --amend *)",
+      "Bash(git rebase *)",
+      "Bash(git reset --hard *)",
+      "Bash(git push --delete *)",
+      "Bash(git push origin --delete *)",
+      "Bash(git branch -d *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh repo delete *)"
     ]
-  }
+  },
+  "_harness": "claude-harness settings/permissions-deny.snippet.json + settings/git-hygiene.snippet.json merged 2026-09-24 (branch gate/grilling-trailers; see docs/git-hygiene.md and docs/adr/0001 there). The grilling gate itself (.githooks + CI) is NOT adopted here: adoption-matrix section 1a."
 }

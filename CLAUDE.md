@@ -1,5 +1,7 @@
 # Analog Image Generator
 
+@AGENTS.md
+
 ## Project Overview
 
 Generate synthetic geologic analog images (fluvial focus) with interactive notebooks and reporting/QA. Designed for professor-facing demos with transparent rule↔code mapping, interactive UI with batch/export, metrics/QA, and reporting artifacts.
@@ -146,4 +148,4 @@ tools to resolve library id and get library docs without me having to explicitly
 - `docs/MEETING_RECAP_2025-11-21.md` - Demo script and current state
 - `docs/MCP_SETUP.md` - MCP server setup (Task Master, Context7, GitHub)
 - `docs/rules/` - Git workflow, Python standards, self-improvement rules
-- `AGENTS.md` - (Legacy) Codex CLI setup guide, retained for reference
+- `docs/legacy/AGENTS-codex-taskmaster-2025.md` - (Legacy) Codex CLI + Task Master setup guide, retained for reference; `AGENTS.md` now carries the harness standing rules
