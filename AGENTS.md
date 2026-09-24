@@ -40,8 +40,9 @@ reference only: task-master is retired and pending tasks live in `tasks.md`.
 
 ## Git
 
-- Follow claude-harness `docs/git-hygiene.md` rules 1–13: feature branches named `<track>/<subject>`,
-  atomic imperative commits, `Co-Authored-By` on agent commits, push feature branches after every commit,
-  `main` moves only through a merged pull request and a human merges. The checked-in
-  `.claude/settings.json` carries the deny/ask rules.
+- Follow claude-harness `docs/git-hygiene.md` (floor amended 2026-09-24): commit as work completes and push
+  after every commit, `main` included. Take a `<track>/<subject>` branch when the work might be abandoned
+  or a diff that matters wants its Codex review first, and merge it yourself; no human step. Never make
+  published history unrecoverable: no force-push, no deleting `main`, no rewriting pushed commits; a goof
+  is fixed with `git revert`. The checked-in `.claude/settings.json` carries the deny/ask rules.
 - **Grilling gate:** rule 14 (`Decided:` / class trailers) is NOT adopted here. Adoption matrix §1a: "not adopted." To adopt: `~/projects/claude-harness/adopt.sh ~/projects/analog_image_generator`, then the owner runs `git config core.hooksPath .githooks`; adopt.sh replaces this line with its pointer. <!-- grill-gate:pointer -->
