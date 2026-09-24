@@ -16,6 +16,31 @@
       "Write(**/credentials*)",
       "Bash(git push * main)",
       "Bash(git push * master)",
+      "Bash(git push *:main)",
+      "Bash(git push *:main *)",
+      "Bash(git push *:refs/heads/main)",
+      "Bash(git push *:refs/heads/main *)",
+      "Bash(git push * main *)",
+      "Bash(git * push * main)",
+      "Bash(git * push *:main)",
+      "Bash(git * push *:main *)",
+      "Bash(git * push *:refs/heads/main)",
+      "Bash(git * push *:refs/heads/main *)",
+      "Bash(git * push * main *)",
+      "Bash(git push *:master)",
+      "Bash(git push *:master *)",
+      "Bash(git push *:refs/heads/master)",
+      "Bash(git push *:refs/heads/master *)",
+      "Bash(git push * master *)",
+      "Bash(git * push * master)",
+      "Bash(git * push *:master)",
+      "Bash(git * push *:master *)",
+      "Bash(git * push *:refs/heads/master)",
+      "Bash(git * push *:refs/heads/master *)",
+      "Bash(git * push * master *)",
+      "Bash(git * push --force *)",
+      "Bash(git * push -f *)",
+      "Bash(git * push --force-with-lease *)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(git push --force-with-lease *)",
@@ -47,5 +72,5 @@
       "Bash(gh repo delete *)"
     ]
   },
-  "_harness": "claude-harness settings/permissions-deny.snippet.json + settings/git-hygiene.snippet.json merged 2026-09-24 (branch gate/grilling-trailers; see docs/git-hygiene.md and docs/adr/0001 there). The grilling gate itself (.githooks + CI) is NOT adopted here: adoption-matrix section 1a."
+  "_harness": "claude-harness settings/permissions-deny.snippet.json + settings/git-hygiene.snippet.json merged 2026-09-24 (branch gate/grilling-trailers; see docs/git-hygiene.md and docs/adr/0001 there). The grilling gate itself (.githooks + CI) is NOT adopted here: adoption-matrix section 1a. Refspec/-C push forms added 2026-09-24 from harness main 6e4600d (PR #2; measured hole: `git push origin --dry-run x:main` ran under the old set)."
 }
