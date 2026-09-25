@@ -3,8 +3,8 @@
 Standing rules every session (Claude, Codex, human) loads. The harness standard is
 `~/projects/claude-harness` (https://github.com/Zanzagar/claude-harness): `docs/git-hygiene.md` is the
 git standard, `docs/adr/0001-verification-precedence.md` the workflow precedence, `docs/adoption-matrix.md`
-this project's row. Adopted here 2026-09-24 from branch `gate/grilling-trailers` (unmerged at adoption;
-re-sync when it lands).
+this project's row. Adopted here 2026-09-24; everything it points at is on harness `main` since 988476b (the gate
+branch merged the same evening).
 The Codex + Task Master guide that used to be this file is `docs/legacy/AGENTS-codex-taskmaster-2025.md`,
 reference only: task-master is retired and pending tasks live in `tasks.md`.
 
