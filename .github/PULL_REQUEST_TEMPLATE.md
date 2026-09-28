@@ -17,3 +17,5 @@
 - [ ] `pytest -q`
 - [ ] `pre-commit run --all-files`
 - [ ] `python -m build` (required for packaging or setup changes)
+
+Decided: <repo-path>#<anchor>
